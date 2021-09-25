@@ -1,0 +1,280 @@
+src/frontend/ast.cmo : \
+    src/frontend/types.cmo \
+    src/misc/loc.cmo \
+    src/fsmcomp/kernel/kast.cmo \
+    src/misc/gensym.cmo \
+    src/fsmcomp/kernel/atom.cmo
+src/frontend/ast.cmx : \
+    src/frontend/types.cmx \
+    src/misc/loc.cmx \
+    src/fsmcomp/kernel/kast.cmx \
+    src/misc/gensym.cmx \
+    src/fsmcomp/kernel/atom.cmx
+src/frontend/ast2kast.cmo : \
+    src/frontend/typing.cmo \
+    src/frontend/types.cmo \
+    src/misc/misc.cmo \
+    src/fsmcomp/kernel/ktypes.cmo \
+    src/fsmcomp/kernel/kast.cmo \
+    src/misc/gensym.cmo \
+    src/fsmcomp/translations/esml2vhdl.cmi \
+    src/fsmcomp/kernel/atom.cmo \
+    src/frontend/ast.cmo \
+    src/frontend/ast2kast.cmi
+src/frontend/ast2kast.cmx : \
+    src/frontend/typing.cmx \
+    src/frontend/types.cmx \
+    src/misc/misc.cmx \
+    src/fsmcomp/kernel/ktypes.cmx \
+    src/fsmcomp/kernel/kast.cmx \
+    src/misc/gensym.cmx \
+    src/fsmcomp/translations/esml2vhdl.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/frontend/ast.cmx \
+    src/frontend/ast2kast.cmi
+src/frontend/ast2kast.cmi : \
+    src/fsmcomp/kernel/kast.cmo \
+    src/frontend/ast.cmo
+src/frontend/ast_rename.cmo : \
+    src/misc/misc.cmo \
+    src/misc/gensym.cmo \
+    src/frontend/ast.cmo \
+    src/frontend/ast_rename.cmi
+src/frontend/ast_rename.cmx : \
+    src/misc/misc.cmx \
+    src/misc/gensym.cmx \
+    src/frontend/ast.cmx \
+    src/frontend/ast_rename.cmi
+src/frontend/ast_rename.cmi : \
+    src/frontend/ast.cmo
+src/frontend/inline.cmo : \
+    src/frontend/types.cmo \
+    src/misc/misc.cmo \
+    src/misc/gensym.cmo \
+    src/fsmcomp/kernel/atom.cmo \
+    src/frontend/ast.cmo \
+    src/frontend/inline.cmi
+src/frontend/inline.cmx : \
+    src/frontend/types.cmx \
+    src/misc/misc.cmx \
+    src/misc/gensym.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/frontend/ast.cmx \
+    src/frontend/inline.cmi
+src/frontend/inline.cmi : \
+    src/frontend/ast.cmo
+src/frontend/main.cmo : \
+    src/fsmcomp/renaming/vsml_states_rename.cmi \
+    src/fsmcomp/renaming/vsml_rename.cmi \
+    src/fsmcomp/translations/vsml2psml.cmi \
+    src/frontend/typing.cmo \
+    src/fsmcomp/translations/psml2esml.cmi \
+    src/fsmcomp/kernel/pprint_kast.cmo \
+    src/frontend/pprint_ast.cmo \
+    src/fsmcomp/debug/parser_vsml.cmi \
+    src/frontend/parser.cmi \
+    src/frontend/inline.cmi \
+    src/fsmcomp/target/gen_platform.cmo \
+    src/fsmcomp/translations/esml2vhdl.cmi \
+    src/frontend/ast_rename.cmi \
+    src/frontend/ast2kast.cmi
+src/frontend/main.cmx : \
+    src/fsmcomp/renaming/vsml_states_rename.cmx \
+    src/fsmcomp/renaming/vsml_rename.cmx \
+    src/fsmcomp/translations/vsml2psml.cmx \
+    src/frontend/typing.cmx \
+    src/fsmcomp/translations/psml2esml.cmx \
+    src/fsmcomp/kernel/pprint_kast.cmx \
+    src/frontend/pprint_ast.cmx \
+    src/fsmcomp/debug/parser_vsml.cmx \
+    src/frontend/parser.cmi \
+    src/frontend/inline.cmx \
+    src/fsmcomp/target/gen_platform.cmx \
+    src/fsmcomp/translations/esml2vhdl.cmx \
+    src/frontend/ast_rename.cmx \
+    src/frontend/ast2kast.cmx
+src/frontend/parser.cmi : \
+    src/frontend/ast.cmo
+src/frontend/pprint_ast.cmo : \
+    src/frontend/types.cmo \
+    src/fsmcomp/kernel/pprint_kast.cmo \
+    src/fsmcomp/kernel/kast.cmo \
+    src/frontend/ast.cmo
+src/frontend/pprint_ast.cmx : \
+    src/frontend/types.cmx \
+    src/fsmcomp/kernel/pprint_kast.cmx \
+    src/fsmcomp/kernel/kast.cmx \
+    src/frontend/ast.cmx
+src/frontend/types.cmo :
+src/frontend/types.cmx :
+src/frontend/typing.cmo : \
+    src/frontend/types.cmo \
+    src/frontend/pprint_ast.cmo \
+    src/misc/misc.cmo \
+    src/misc/loc.cmo \
+    src/fsmcomp/kernel/atom.cmo \
+    src/frontend/ast.cmo
+src/frontend/typing.cmx : \
+    src/frontend/types.cmx \
+    src/frontend/pprint_ast.cmx \
+    src/misc/misc.cmx \
+    src/misc/loc.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/frontend/ast.cmx
+src/fsmcomp/debug/main_debug.cmo : \
+    src/fsmcomp/renaming/vsml_states_rename.cmi \
+    src/fsmcomp/renaming/vsml_rename.cmi \
+    src/fsmcomp/translations/vsml2psml.cmi \
+    src/fsmcomp/translations/psml2esml.cmi \
+    src/fsmcomp/debug/parser_vsml.cmi \
+    src/fsmcomp/target/gen_platform.cmo \
+    src/fsmcomp/translations/esml2vhdl.cmi
+src/fsmcomp/debug/main_debug.cmx : \
+    src/fsmcomp/renaming/vsml_states_rename.cmx \
+    src/fsmcomp/renaming/vsml_rename.cmx \
+    src/fsmcomp/translations/vsml2psml.cmx \
+    src/fsmcomp/translations/psml2esml.cmx \
+    src/fsmcomp/debug/parser_vsml.cmx \
+    src/fsmcomp/target/gen_platform.cmx \
+    src/fsmcomp/translations/esml2vhdl.cmx
+src/fsmcomp/debug/parser_vsml.cmo : \
+    src/misc/loc.cmo \
+    src/fsmcomp/kernel/ktypes.cmo \
+    src/fsmcomp/kernel/kast.cmo \
+    src/misc/gensym.cmo \
+    src/fsmcomp/kernel/atom.cmo \
+    src/fsmcomp/debug/parser_vsml.cmi
+src/fsmcomp/debug/parser_vsml.cmx : \
+    src/misc/loc.cmx \
+    src/fsmcomp/kernel/ktypes.cmx \
+    src/fsmcomp/kernel/kast.cmx \
+    src/misc/gensym.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/fsmcomp/debug/parser_vsml.cmi
+src/fsmcomp/debug/parser_vsml.cmi : \
+    src/fsmcomp/kernel/kast.cmo
+src/fsmcomp/kernel/atom.cmo : \
+    src/fsmcomp/kernel/ktypes.cmo
+src/fsmcomp/kernel/atom.cmx : \
+    src/fsmcomp/kernel/ktypes.cmx
+src/fsmcomp/kernel/kast.cmo : \
+    src/misc/loc.cmo \
+    src/fsmcomp/kernel/ktypes.cmo \
+    src/fsmcomp/kernel/atom.cmo
+src/fsmcomp/kernel/kast.cmx : \
+    src/misc/loc.cmx \
+    src/fsmcomp/kernel/ktypes.cmx \
+    src/fsmcomp/kernel/atom.cmx
+src/fsmcomp/kernel/ktypes.cmo :
+src/fsmcomp/kernel/ktypes.cmx :
+src/fsmcomp/kernel/pprint_kast.cmo : \
+    src/fsmcomp/kernel/ktypes.cmo \
+    src/fsmcomp/kernel/kast.cmo \
+    src/fsmcomp/kernel/atom.cmo \
+    src/frontend/ast.cmo
+src/fsmcomp/kernel/pprint_kast.cmx : \
+    src/fsmcomp/kernel/ktypes.cmx \
+    src/fsmcomp/kernel/kast.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/frontend/ast.cmx
+src/fsmcomp/renaming/psml_rename.cmo : \
+    src/fsmcomp/kernel/kast.cmo \
+    src/misc/gensym.cmo \
+    src/fsmcomp/kernel/atom.cmo \
+    src/fsmcomp/renaming/psml_rename.cmi
+src/fsmcomp/renaming/psml_rename.cmx : \
+    src/fsmcomp/kernel/kast.cmx \
+    src/misc/gensym.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/fsmcomp/renaming/psml_rename.cmi
+src/fsmcomp/renaming/psml_rename.cmi : \
+    src/fsmcomp/kernel/kast.cmo
+src/fsmcomp/renaming/vsml_rename.cmo : \
+    src/fsmcomp/kernel/kast.cmo \
+    src/misc/gensym.cmo \
+    src/fsmcomp/kernel/atom.cmo \
+    src/fsmcomp/renaming/vsml_rename.cmi
+src/fsmcomp/renaming/vsml_rename.cmx : \
+    src/fsmcomp/kernel/kast.cmx \
+    src/misc/gensym.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/fsmcomp/renaming/vsml_rename.cmi
+src/fsmcomp/renaming/vsml_rename.cmi : \
+    src/fsmcomp/kernel/kast.cmo
+src/fsmcomp/renaming/vsml_states_rename.cmo : \
+    src/fsmcomp/kernel/kast.cmo \
+    src/misc/gensym.cmo \
+    src/fsmcomp/kernel/atom.cmo \
+    src/fsmcomp/renaming/vsml_states_rename.cmi
+src/fsmcomp/renaming/vsml_states_rename.cmx : \
+    src/fsmcomp/kernel/kast.cmx \
+    src/misc/gensym.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/fsmcomp/renaming/vsml_states_rename.cmi
+src/fsmcomp/renaming/vsml_states_rename.cmi : \
+    src/fsmcomp/kernel/kast.cmo
+src/fsmcomp/target/gen_hw_tcl.cmo : \
+    src/fsmcomp/translations/esml2vhdl.cmi
+src/fsmcomp/target/gen_hw_tcl.cmx : \
+    src/fsmcomp/translations/esml2vhdl.cmx
+src/fsmcomp/target/gen_platform.cmo : \
+    src/fsmcomp/kernel/ktypes.cmo \
+    src/fsmcomp/kernel/kast.cmo \
+    src/fsmcomp/target/gen_hw_tcl.cmo \
+    src/fsmcomp/translations/esml2vhdl.cmi
+src/fsmcomp/target/gen_platform.cmx : \
+    src/fsmcomp/kernel/ktypes.cmx \
+    src/fsmcomp/kernel/kast.cmx \
+    src/fsmcomp/target/gen_hw_tcl.cmx \
+    src/fsmcomp/translations/esml2vhdl.cmx
+src/fsmcomp/translations/esml2vhdl.cmo : \
+    src/fsmcomp/kernel/ktypes.cmo \
+    src/fsmcomp/kernel/kast.cmo \
+    src/misc/gensym.cmo \
+    src/fsmcomp/kernel/atom.cmo \
+    src/fsmcomp/translations/esml2vhdl.cmi
+src/fsmcomp/translations/esml2vhdl.cmx : \
+    src/fsmcomp/kernel/ktypes.cmx \
+    src/fsmcomp/kernel/kast.cmx \
+    src/misc/gensym.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/fsmcomp/translations/esml2vhdl.cmi
+src/fsmcomp/translations/esml2vhdl.cmi : \
+    src/fsmcomp/kernel/ktypes.cmo \
+    src/fsmcomp/kernel/kast.cmo
+src/fsmcomp/translations/psml2esml.cmo : \
+    src/misc/misc.cmo \
+    src/fsmcomp/kernel/kast.cmo \
+    src/fsmcomp/kernel/atom.cmo \
+    src/fsmcomp/translations/psml2esml.cmi
+src/fsmcomp/translations/psml2esml.cmx : \
+    src/misc/misc.cmx \
+    src/fsmcomp/kernel/kast.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/fsmcomp/translations/psml2esml.cmi
+src/fsmcomp/translations/psml2esml.cmi : \
+    src/fsmcomp/kernel/kast.cmo
+src/fsmcomp/translations/vsml2psml.cmo : \
+    src/misc/monads.cmo \
+    src/fsmcomp/kernel/ktypes.cmo \
+    src/fsmcomp/kernel/kast.cmo \
+    src/misc/gensym.cmo \
+    src/fsmcomp/kernel/atom.cmo \
+    src/fsmcomp/translations/vsml2psml.cmi
+src/fsmcomp/translations/vsml2psml.cmx : \
+    src/misc/monads.cmx \
+    src/fsmcomp/kernel/ktypes.cmx \
+    src/fsmcomp/kernel/kast.cmx \
+    src/misc/gensym.cmx \
+    src/fsmcomp/kernel/atom.cmx \
+    src/fsmcomp/translations/vsml2psml.cmi
+src/fsmcomp/translations/vsml2psml.cmi : \
+    src/fsmcomp/kernel/kast.cmo
+src/misc/gensym.cmo :
+src/misc/gensym.cmx :
+src/misc/loc.cmo :
+src/misc/loc.cmx :
+src/misc/misc.cmo :
+src/misc/misc.cmx :
+src/misc/monads.cmo :
+src/misc/monads.cmx :

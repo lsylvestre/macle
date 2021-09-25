@@ -1,0 +1,9 @@
+compile
+**/*.cmi
+**/*.cmo
+**/*.cmx
+**/*~
+gen/rtl/
+gen/c
+gen/ml
+**/.DS_Store
