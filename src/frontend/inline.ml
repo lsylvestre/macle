@@ -262,7 +262,7 @@ let rec inline rec_env env e =
                  let e' = if x = y then inline rec_env' env e0 else inline rec_env' env e in
                  (* Pprint_ast.PP_TMACLE.pp_exp Format.err_formatter e';Format.(fprintf err_formatter "\n%s~~~~~~\n" y); *)
                  let xs' = if x = y then xs2 else List.filter (fun (_,ty) -> not @@ is_fun_type ty) xs3 in
-                 (x,xs'),e') bs
+                 (y,xs'),e') bs
            in
            let e1 = LetRec(bs',App(x,es',ty)) in
            (* Pprint_ast.PP_TMACLE.pp_exp Format.err_formatter e1;*)
