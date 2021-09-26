@@ -58,6 +58,7 @@ constant:
 
 call_pstate_flat(E):
 | q=ident LPAREN es=separated_nonempty_list(COMMA,E) RPAREN { (q,es) }
+| q=ident LPAREN RPAREN { (q,[]) }
 
 macle_let_rec:
 | LET REC bs=separated_nonempty_list(AND,fun_bindings)

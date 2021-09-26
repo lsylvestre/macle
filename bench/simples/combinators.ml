@@ -1,15 +1,15 @@
 circuit sum_list(l) = 
   let add(s,x) = s + x in
-  List.fold_left add 0 l
+  list_fold_left(add,0,l) ;;
 
 circuit sum_array(a) = 
   let add(s,x) = s + x in
-  Array.fold_left add 0 a
+  array_fold_left(add,0,a) ;;
 
 circuit sum_array2(a) = 
   let add(s,x) = s + x in
   let y = a in
-  let n = Array.length y in
+  let n = array_length y in
   let rec q(acc,i) = 
     if i >= n then acc else
     let x = y.(i) in
@@ -17,12 +17,14 @@ circuit sum_array2(a) =
     q(acc2,i+1) in
   q(0,0)
 
+;;
+
 circuit len(a) =
-  Array.length a 
+  array_length a  ;;
 
 circuit array_inc(a) = 
   let inc(x) = x + 1 in
-  Array.map_by 4 inc a
+  array_map_by(4,inc,a)
 
 ;;;
 
