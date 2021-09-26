@@ -69,6 +69,7 @@ src/frontend/main.cmo : \
     src/fsmcomp/translations/vsml2psml.cmi \
     src/frontend/typing.cmo \
     src/fsmcomp/translations/psml2esml.cmi \
+    src/frontend/propagation.cmi \
     src/fsmcomp/kernel/pprint_kast.cmo \
     src/frontend/pprint_ast.cmo \
     src/fsmcomp/debug/parser_vsml.cmi \
@@ -84,6 +85,7 @@ src/frontend/main.cmx : \
     src/fsmcomp/translations/vsml2psml.cmx \
     src/frontend/typing.cmx \
     src/fsmcomp/translations/psml2esml.cmx \
+    src/frontend/propagation.cmx \
     src/fsmcomp/kernel/pprint_kast.cmx \
     src/frontend/pprint_ast.cmx \
     src/fsmcomp/debug/parser_vsml.cmx \
@@ -105,6 +107,16 @@ src/frontend/pprint_ast.cmx : \
     src/fsmcomp/kernel/pprint_kast.cmx \
     src/fsmcomp/kernel/kast.cmx \
     src/frontend/ast.cmx
+src/frontend/propagation.cmo : \
+    src/misc/misc.cmo \
+    src/frontend/ast.cmo \
+    src/frontend/propagation.cmi
+src/frontend/propagation.cmx : \
+    src/misc/misc.cmx \
+    src/frontend/ast.cmx \
+    src/frontend/propagation.cmi
+src/frontend/propagation.cmi : \
+    src/frontend/ast.cmo
 src/frontend/types.cmo :
 src/frontend/types.cmx :
 src/frontend/typing.cmo : \

@@ -8,11 +8,11 @@ open Types
     Non tail-recursive functions are not supported : 
     this silently generates incorrect code (to be improved !) *)
 
-(* this specializes the higher order functions, possibly recursive.
-   TODO : fix mutual recursive HOFs  *)
+(* Inlining specializes the higher order functions, possibly recursive.
+   TODO : fix mutual recursive HOFs *)
 
-let flag_constant_and_copy_propagation = ref true 
-(* e.g.: [let x = y and z = 2 in x + z + 1] ~> [y + 2 + 1] *)
+(** Inlining assume that each identifier binded by Let/LetFun/LetRec is unique:
+    a renaming of identifiers must be perform on the source code beforehand. *)
 
 let rec occur x e =
   match e with
@@ -62,7 +62,7 @@ let env_rec_extend ?(recflag=false) bs env =
   List.map (fun ((x,xs),e) -> (x,(xs,e,rframe))) bs @ env    
 
 
-let substs env e =
+let substitution env e =
   let rec aux e = match e with
   | Var x -> (match List.assoc_opt x env with None -> e | Some e' -> e')
   | Const _ -> 
@@ -123,10 +123,10 @@ let specialize_list xs es e =
   (* *********************************** *)
   (* 
   List.iter (fun (x,e') -> Format.fprintf Format.err_formatter "%s / %a IN %a\n#########" x Pprint_ast.PP_TMACLE.pp_exp e'  Pprint_ast.PP_TMACLE.pp_exp e;) env;
-  Format.fprintf Format.err_formatter "[[[[%a]]]]]]\n"  Pprint_ast.PP_TMACLE.pp_exp (substs env e);
+  Format.fprintf Format.err_formatter "[[[[%a]]]]]]\n"  Pprint_ast.PP_TMACLE.pp_exp (substitution env e);
   *)
   (* *********************************** *)
-  xs,es,env,substs env e
+  xs,es,env,substitution env e
 
 
 let fetch x env =
@@ -173,23 +173,11 @@ let mk_array_fold_left q ty tyr init earr = (* résultat inatendu !? *)
                                          [Var i;Const (Atom.mk_int 1)])],tyr),tyr),tyr))],
                App(q',[init;Const (Atom.mk_int 0)],tyr)),tyr),tyr)
 
-let mk_let bs e ty = 
-  match bs with
-  | [] -> e 
-  | _ -> Let(bs,e,ty)
-
-let let_with_constant_and_copy_propagation bs e ty = 
-  let env,bs = List.partition_map (function ((x,_),((Var _ | Const _) as e)) -> Left (x,e) | b -> Right b) bs in
-  mk_let bs (substs env e) ty
-
-let mk_let_optimized = 
-  if !flag_constant_and_copy_propagation then let_with_constant_and_copy_propagation else mk_let
-
 let let_set bs ty e = 
-  List.fold_right (fun b e -> mk_let_optimized [b] e ty) bs e
+  List.fold_right (fun b e -> mk_let [b] e ty) bs e
 
 let let_par bs ty e = 
-  mk_let_optimized bs e ty 
+  mk_let bs e ty 
 
 let add a b = Prim (Atom.Binop Add,[a;b])
 
@@ -253,7 +241,7 @@ let rec inline rec_env env e =
   | Let(bs,e,ty) ->
       let bs' = List.map (fun (x,e) -> (x,inline rec_env env e)) bs in 
       let e' = inline rec_env env e in (* moins les xi *)
-      mk_let_optimized bs' e' ty
+      mk_let bs' e' ty
   | LetFun(b,e) ->
       (* [b] est "poussé" dans l'environnement *)
       let env' = env_rec_extend [b] env in
@@ -287,7 +275,7 @@ let rec inline rec_env env e =
       else let bs' = List.combine xs2 es' in
            let e' = inline rec_env env e0 in
            (* let bs'' = List.filter (fun ((x,ty),_) -> not (is_fun_type ty)) bs' in *)
-           mk_let_optimized bs' e' ty
+           mk_let bs' e' ty
   | CamlPrim r -> 
     (match r with
     | RefAccess (e,t) -> 

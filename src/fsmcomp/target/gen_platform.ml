@@ -3,8 +3,8 @@ open Esml2vhdl
 
   (* ***************************************** *)
 
-let print_compute_time = ref false
-let print_compute_time_short = ref false
+let flag_print_compute_time = ref false
+let flag_print_compute_time_short = ref false
 
 let mk_package name fmt = 
   fprintf fmt "@[<v>library ieee;@,";
@@ -293,7 +293,7 @@ let mk_platform_c fmt (envi,envo,_) name =
   fprintf fmt "@]){@,";
   fprintf fmt "alt_u32 result;@,";
   
-  if !print_compute_time then
+  if !flag_print_compute_time then
      fprintf fmt "int __dt = nios_timer_get_us();@,@,";
   
   (* fprintf fmt "@[<v 2>while (!IORD(%s_CC_BASE, %s_CC_CTL))@," upName upName;
@@ -314,9 +314,9 @@ let mk_platform_c fmt (envi,envo,_) name =
   fprintf fmt "@,@,while ( (result = IORD(%s_CC_BASE, %s_CC_CTL)) == 0 ); // Wait for rdy@," upName upName;
   fprintf fmt "result = IORD(%s_CC_BASE, %s_CC_RESULT); // Read result@," upName upName;
 
-  if !print_compute_time || !print_compute_time_short then begin
+  if !flag_print_compute_time || !flag_print_compute_time_short then begin
      fprintf fmt "@,__dt = nios_timer_get_us() - __dt;@,";
-     if !print_compute_time_short then
+     if !flag_print_compute_time_short then
           fprintf fmt "@,printf(\"%%d,\n\",__dt);"
      else fprintf fmt "@,printf(\"\\nellapsed time : %%d us\\n\",__dt);@,@,";
   end;
@@ -523,5 +523,5 @@ let mk_vhdl_with_cc ?labels ?xs_opt circuit =
   close_out hw_tcl_oc;
   close_out ext_tcl_oc;
 
-  Printf.printf "info: circuit  \"%s\"  generated in folder gen/.\n" name
+  Printf.printf "  info: circuit  \"%s\"  generated in folder gen/.\n" name
 

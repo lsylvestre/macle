@@ -42,6 +42,11 @@ module TMACLE = struct
   | ArrayFoldLeft of ident * ty * ty * exp * exp
   | ListFoldLeft of ident * ty * ty * exp * exp
 
+  let mk_let bs e ty = 
+  match bs with
+  | [] -> e 
+  | _ -> Let(bs,e,ty)
+
 end
 
 

@@ -19,18 +19,11 @@ circuit sum_array2(a) =
 
 ;;
 
-circuit len(a) =
-  array_length a  ;;
-
-circuit array_inc(a) = 
+circuit array_map_inc_by4(a) = 
   let inc(x) = x + 1 in
   array_map_by(4,inc,a)
 
 ;;;
-
-
-let print_int = Serial.write_int ;;
-let print_string = Serial.write_string ;;
 
 print_int (sum_list [1;2;3;4;5;6;7;8;9;10]);;
 print_string "\n";;

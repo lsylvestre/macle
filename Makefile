@@ -42,6 +42,7 @@ OBJS=src/misc/misc.cmo\
      src/frontend/ast_rename.cmo\
      src/frontend/ast2kast.cmo\
      src/frontend/inline.cmo\
+     src/frontend/propagation.cmo\
      \
      src/fsmcomp/debug/parser_vsml.cmo\
      src/fsmcomp/debug/lexer_vsml.cmo\
