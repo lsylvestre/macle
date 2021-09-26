@@ -1,6 +1,7 @@
 open Ast
 open TMACLE
 open Types
+
 (** systematically inline function calls.
     tail-recursive functions are translated into local loops.
     
@@ -9,6 +10,9 @@ open Types
 
 (* this specializes the higher order functions, possibly recursive.
    TODO : fix mutual recursive HOFs  *)
+
+let flag_constant_and_copy_propagation = ref true 
+(* e.g.: [let x = y and z = 2 in x + z + 1] ~> [y + 2 + 1] *)
 
 let rec occur x e =
   match e with
@@ -169,10 +173,23 @@ let mk_array_fold_left q ty tyr init earr = (* résultat inatendu !? *)
                                          [Var i;Const (Atom.mk_int 1)])],tyr),tyr),tyr))],
                App(q',[init;Const (Atom.mk_int 0)],tyr)),tyr),tyr)
 
-let let_set bs ty e = 
-  List.fold_right (fun b e -> Let([b],e,ty)) bs e
+let mk_let bs e ty = 
+  match bs with
+  | [] -> e 
+  | _ -> Let(bs,e,ty)
 
-let let_par bs ty e = Let(bs,e,ty) 
+let let_with_constant_and_copy_propagation bs e ty = 
+  let env,bs = List.partition_map (function ((x,_),((Var _ | Const _) as e)) -> Left (x,e) | b -> Right b) bs in
+  mk_let bs (substs env e) ty
+
+let mk_let_optimized = 
+  if !flag_constant_and_copy_propagation then let_with_constant_and_copy_propagation else mk_let
+
+let let_set bs ty e = 
+  List.fold_right (fun b e -> mk_let_optimized [b] e ty) bs e
+
+let let_par bs ty e = 
+  mk_let_optimized bs e ty 
 
 let add a b = Prim (Atom.Binop Add,[a;b])
 
@@ -236,7 +253,7 @@ let rec inline rec_env env e =
   | Let(bs,e,ty) ->
       let bs' = List.map (fun (x,e) -> (x,inline rec_env env e)) bs in 
       let e' = inline rec_env env e in (* moins les xi *)
-      Let(bs',e',ty)
+      mk_let_optimized bs' e' ty
   | LetFun(b,e) ->
       (* [b] est "poussé" dans l'environnement *)
       let env' = env_rec_extend [b] env in
@@ -248,7 +265,7 @@ let rec inline rec_env env e =
   | App(x,es,ty) ->
       let (xs,e,rbs) = fetch x env in
       let bs = !rbs in
-      (* ) List.filter_map (fun ((_,ty),e) -> 
+      (*  List.filter_map (fun ((_,ty),e) -> 
           if is_fun_type ty then None else Some (inline rec_env env e)) 
           (List.combine xs es) in *)
       
@@ -270,7 +287,7 @@ let rec inline rec_env env e =
       else let bs' = List.combine xs2 es' in
            let e' = inline rec_env env e0 in
            (* let bs'' = List.filter (fun ((x,ty),_) -> not (is_fun_type ty)) bs' in *)
-           Let(bs',e',ty)
+           mk_let_optimized bs' e' ty
   | CamlPrim r -> 
     (match r with
     | RefAccess (e,t) -> 

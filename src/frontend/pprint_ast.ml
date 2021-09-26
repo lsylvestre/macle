@@ -43,7 +43,7 @@ module PP_MACLE = struct
   | App (q,es) ->
       fprintf fmt "%s(" q;
       pp_print_list 
-        ~pp_sep:(fun fmt () -> fprintf fmt ",@,") pp_exp fmt es;
+        ~pp_sep:(fun fmt () -> fprintf fmt ",@ ") pp_exp fmt es;
        fprintf fmt ")@,"
   | Let(bs,e) -> 
     fprintf fmt "@[<v>let ";
@@ -59,13 +59,13 @@ module PP_MACLE = struct
     pp_exp fmt e;
     fprintf fmt ")@]"
   | LetRec(ts,e) ->
-    fprintf fmt "@[<v>(let rec ";
+    fprintf fmt "(@[<v 2>let rec ";
      pp_print_list 
-        ~pp_sep:(fun fmt () -> fprintf fmt "@, and ") 
+        ~pp_sep:(fun fmt () -> fprintf fmt "@]@,[<v 2>and ") 
        pp_transition fmt ts;
     fprintf fmt " in ";
     pp_exp fmt e;
-    fprintf fmt "@,)@]"
+    fprintf fmt ")@]"
   | CamlPrim e -> 
   (match e with
   | RefAccess e -> 
@@ -107,7 +107,7 @@ module PP_MACLE = struct
   )
 
   and pp_transition fmt ((q,xs),e) = 
-    fprintf fmt "@[<v 2> %s(@]" q; 
+    fprintf fmt "%s(" q; 
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_print_text fmt xs;
     fprintf fmt ") = @,";
@@ -162,7 +162,7 @@ module PP_TMACLE = struct
   | App (q,es,_) ->
       fprintf fmt "%s(" q;
       pp_print_list 
-        ~pp_sep:(fun fmt () -> fprintf fmt ",@,") pp_exp fmt es;
+        ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_exp fmt es;
        fprintf fmt ")@,"
   | Let(bs,e,_) -> 
       fprintf fmt "@[<v>let ";
@@ -178,13 +178,13 @@ module PP_TMACLE = struct
       pp_exp fmt e;
       fprintf fmt ")@]"
   | LetRec(ts,e) ->
-      fprintf fmt "@[<v>(let rec ";
+      fprintf fmt "@[<v>(@[<v 2>let rec ";
        pp_print_list 
-          ~pp_sep:(fun fmt () -> fprintf fmt "@,and ") 
+          ~pp_sep:(fun fmt () -> fprintf fmt "@,@[<v 2>and ") 
          pp_transition fmt ts;
-      fprintf fmt "in ";
+      fprintf fmt "@]in ";
       pp_exp fmt e;
-      fprintf fmt "@,)@]"
+      fprintf fmt ")@]"
   | CamlPrim e -> 
   (match e with
   | RefAccess (e,ty) -> 
@@ -236,7 +236,7 @@ module PP_TMACLE = struct
         print_ty ty2
   )
   and pp_transition fmt ((q,xs),e) = 
-    fprintf fmt "@[<v 2> %s(@]" q; 
+    fprintf fmt "%s(" q; 
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt ", ") 
          pp_tyconstr fmt xs;
