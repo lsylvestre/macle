@@ -185,7 +185,7 @@ module PP_VSML = struct
   | Out -> pp_print_text fmt "output"
   | Local -> pp_print_text fmt "local"
 
-  let pp_cirucit fmt {x;s;body} =
+  let pp_circuit fmt {x;s;body} =
     fprintf fmt "@[<v 2>circuit %s sig " x;
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt ", ") 

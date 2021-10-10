@@ -35,6 +35,16 @@ src/frontend/ast2kast.cmx : \
 src/frontend/ast2kast.cmi : \
     src/fsmcomp/kernel/kast.cmo \
     src/frontend/ast.cmo
+src/frontend/ast2ocaml.cmo : \
+    src/frontend/types.cmo \
+    src/fsmcomp/kernel/pprint_kast.cmo \
+    src/fsmcomp/kernel/kast.cmo \
+    src/frontend/ast.cmo
+src/frontend/ast2ocaml.cmx : \
+    src/frontend/types.cmx \
+    src/fsmcomp/kernel/pprint_kast.cmx \
+    src/fsmcomp/kernel/kast.cmx \
+    src/frontend/ast.cmx
 src/frontend/ast_rename.cmo : \
     src/misc/misc.cmo \
     src/misc/gensym.cmo \
@@ -78,6 +88,7 @@ src/frontend/main.cmo : \
     src/fsmcomp/target/gen_platform.cmo \
     src/fsmcomp/translations/esml2vhdl.cmi \
     src/frontend/ast_rename.cmi \
+    src/frontend/ast2ocaml.cmo \
     src/frontend/ast2kast.cmi
 src/frontend/main.cmx : \
     src/fsmcomp/renaming/vsml_states_rename.cmx \
@@ -94,6 +105,7 @@ src/frontend/main.cmx : \
     src/fsmcomp/target/gen_platform.cmx \
     src/fsmcomp/translations/esml2vhdl.cmx \
     src/frontend/ast_rename.cmx \
+    src/frontend/ast2ocaml.cmx \
     src/frontend/ast2kast.cmx
 src/frontend/parser.cmi : \
     src/frontend/ast.cmo

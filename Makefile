@@ -37,6 +37,7 @@ OBJS=src/misc/misc.cmo\
      src/frontend/types.cmo\
      src/frontend/ast.cmo\
      src/frontend/pprint_ast.cmo\
+     src/frontend/ast2ocaml.cmo\
      \
      src/frontend/typing.cmo\
      src/frontend/ast_rename.cmo\

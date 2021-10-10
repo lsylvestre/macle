@@ -114,7 +114,7 @@ module PP_MACLE = struct
     pp_exp fmt e;
     fprintf fmt "@]"
 
-  let pp_cirucit fmt {x;xs;e} =
+  let pp_circuit fmt {x;xs;e} =
     fprintf fmt "@[<v 2>circuit %s(" x;
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_print_text fmt xs;
@@ -219,11 +219,11 @@ module PP_TMACLE = struct
         pp_exp e
         print_ty ty
   | ArrayMapBy(n,x,ty,e) ->
-     fprintf fmt "array_map_by %d %s (%a : %a list)" n x 
+     fprintf fmt "array_map_by %d %s (%a : %a array)" n x 
         pp_exp e
         print_ty ty
   | ArrayFoldLeft(x,ty1,ty2,acc,e) ->
-      fprintf fmt "array_fold_left %s (%a : %a) (%a : %a list)" x 
+      fprintf fmt "array_fold_left %s (%a : %a) (%a : %a array)" x 
         pp_exp acc 
         print_ty ty1 
         pp_exp e
@@ -247,7 +247,7 @@ module PP_TMACLE = struct
   and pp_tyconstr fmt (x,ty) = 
     fprintf fmt "%s : %a" x print_ty ty
 
-  let pp_cirucit fmt {x;xs;e} =
+  let pp_circuit fmt {x;xs;e} =
     fprintf fmt "@[<v 2>circuit %s(" x;
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_tyconstr fmt xs;

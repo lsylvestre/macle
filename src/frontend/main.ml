@@ -21,7 +21,9 @@ let flag_show_typed_ast = ref false
 let flag_show_inlined_ast = ref false
 let flag_show_kast = ref false
 
-let flag_propagation = ref true
+let flag_propagation = ref true (* optimisation *)
+
+let flag_simulation = ref false
 
 let () =
  let set_lang c = 
@@ -50,6 +52,7 @@ let () =
                             "disable constant/copy propagation");
 
       (* ************** *)
+      ("-simul", Arg.Set flag_simulation,"generate an OCaml program");  
       ("-app",  set_lang PLATFORM,"PLATFORM");
       ("-vsml",  set_lang VSML,"VSML input file");
       ("-vhdl-only", Arg.Set flag_vhdl_only,
@@ -74,7 +77,7 @@ let parse filename =
     let lexbuf = Lexing.from_channel ic in
     (match !flag_lang with
     | VSML -> 
-       Parser_vsml.vsml Lexer_vsml.token lexbuf
+      Parser_vsml.vsml Lexer_vsml.token lexbuf
       |> Vsml_rename.rename_vsml_circuit
       |> Vsml_states_rename.rename_states_vsml_circuit
       |> Vsml2psml.compile_vsml_circuit
@@ -82,20 +85,23 @@ let parse filename =
       |> (mk_vhdl)
     | PLATFORM -> 
         let (circuits,main) = Parser.platform_macle Lexer.token lexbuf in    
-        List.iter (function c -> 
-                    
+        if !flag_simulation then 
+          let cs = List.map Typing.typing_circuit circuits in
+          (List.iter (Ast2ocaml.pp_circuit Format.std_formatter) cs; exit 0)
+        else 
+        List.iter (function c ->        
                     (* initialize heap_access / heap_assign *)
                     Esml2vhdl.allow_heap_access := false;
                     Esml2vhdl.allow_heap_assign := false;
                     
                     if !flag_show_ast then
-                      Pprint_ast.PP_MACLE.pp_cirucit Format.err_formatter c;
+                      Pprint_ast.PP_MACLE.pp_circuit Format.err_formatter c;
 
                     let c = Typing.typing_circuit c in
                     let c = Ast_rename.rename_ast c in
 
                     if !flag_show_typed_ast then
-                      Pprint_ast.PP_TMACLE.pp_cirucit Format.err_formatter c;
+                      Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
 
                     let c = Inline.inline_circuit c in
                     let c = if !flag_propagation 
@@ -104,12 +110,12 @@ let parse filename =
                     in
                     
                     if !flag_show_inlined_ast then
-                      Pprint_ast.PP_TMACLE.pp_cirucit Format.err_formatter c;
+                      Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
          
                     let c = Ast2kast.compile_circuit c in
                     
                     if !flag_show_kast then  
-                      Pprint_kast.PP_VSML.pp_cirucit Format.err_formatter c; 
+                      Pprint_kast.PP_VSML.pp_circuit Format.err_formatter c; 
 
                     c
                     |> Vsml_rename.rename_vsml_circuit
