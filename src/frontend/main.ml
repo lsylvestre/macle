@@ -87,7 +87,10 @@ let parse filename =
         let (circuits,main) = Parser.platform_macle Lexer.token lexbuf in    
         if !flag_simulation then 
           let cs = List.map Typing.typing_circuit circuits in
-          (List.iter (Ast2ocaml.pp_circuit Format.std_formatter) cs; exit 0)
+          let open Format in
+          (List.iter (Ast2ocaml.pp_circuit std_formatter) cs; 
+           fprintf std_formatter "@[<v>@,;; (* OCaml program *)@,%s@]@." main;
+           exit 0)
         else 
         List.iter (function c ->        
                     (* initialize heap_access / heap_assign *)
