@@ -26,10 +26,8 @@ and r_e env = function
     Case(r_a env a,
          List.map (fun (c,e) -> (c,r_e env e)) hs,
          r_e env e)
-| Set(x,a,e) -> 
-    Set(x,
-        r_a env a,
-        r_e env e)
+| DoThen(bs,e) -> 
+    DoThen(List.map (fun (x,a) -> x, r_a env a) bs, r_e env e)
 | Continue a -> 
     Continue (r_a env a)
 | State (q,args) ->

@@ -29,15 +29,13 @@ and c_e env = function
     let es' = List.map (c_e env) es in
     let hs' = List.combine cs es' in
     ESML.Case(a,hs',e')
-| PSML.Set(x,a,e) -> 
+| PSML.DoThen(bs,e) -> 
     let e' = c_e env e in 
-    ESML.Set(x,a,e')
+    ESML.DoThen(bs,e')
 | PSML.State(q,args) ->
    (match List.assoc_opt q env with
    | None -> assert false
    | Some xs ->
      assert (List.compare_lengths xs args = 0);
-     let e' = List.fold_right2 (fun (x,_) a acc -> 
-                ESML.Set (x,a,acc)) 
-              xs args (ESML.Atom (Atom.State q)) in
-    e')
+     DoThen(List.map2 (fun (x,_) a -> (x,a)) xs args, 
+            ESML.Atom (Atom.State q)))

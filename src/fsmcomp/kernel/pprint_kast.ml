@@ -152,7 +152,7 @@ module PP_VSML = struct
            (fun fmt ((x,ty),fsm) -> 
                fprintf fmt "%s : %a =@,%a" x Ktypes.print_ty ty pp_fsm fsm) fmt bs;
        fprintf fmt "@]@, in %a" pp_exp e
-    | DoIn(bs,e) -> 
+    | DoThen(bs,e) -> 
       fprintf fmt "@[<v>do ";
       pp_print_list 
           ~pp_sep:(fun fmt () -> fprintf fmt "@, and ") 

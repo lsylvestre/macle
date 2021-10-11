@@ -106,7 +106,7 @@ exp_vsml:
 | p=conditionnelle(atom,exp_vsml)  { VSML.If p }
 | p=case(atom,constant,exp_vsml)   { VSML.Case p }
 | DO bs=separated_nonempty_list(AND,separated_pair(ident,COLONEQ,atom))
-  IN e=exp_vsml                    { VSML.DoIn(bs,e) }
+  THEN e=exp_vsml                  { VSML.DoThen(bs,e) }
 | app=call_pstate                  { VSML.State app }
 | CONTINUE a=atom                 { VSML.Continue a }             
 | LET bs=separated_nonempty_list(AND,

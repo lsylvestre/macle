@@ -1120,7 +1120,7 @@ and _menhir_goto_separated_nonempty_list_AND_separated_pair_ident_COLONEQ_atom__
         ((assert (not _menhir_env._menhir_error);
         let _tok = _menhir_env._menhir_token in
         match _tok with
-        | IN ->
+        | THEN ->
             let (_menhir_env : _menhir_env) = _menhir_env in
             let (_menhir_stack : ('freshtv501 * _menhir_state) * _menhir_state * 'tv_separated_nonempty_list_AND_separated_pair_ident_COLONEQ_atom__) = Obj.magic _menhir_stack in
             ((let _menhir_env = _menhir_discard _menhir_env in
@@ -1336,7 +1336,7 @@ and _menhir_goto_exp_vsml : _menhir_env -> 'ttv_tail -> _menhir_state -> 'tv_exp
         ((let (((_menhir_stack, _menhir_s), _, (bs : 'tv_separated_nonempty_list_AND_separated_pair_ident_COLONEQ_atom__)), _, (e : 'tv_exp_vsml)) = _menhir_stack in
         let _v : 'tv_exp_vsml = 
 # 109 "src/fsmcomp/debug/parser_vsml.mly"
-                                   ( VSML.DoIn(bs,e) )
+                                   ( VSML.DoThen(bs,e) )
 # 1341 "src/fsmcomp/debug/parser_vsml.ml"
          in
         _menhir_goto_exp_vsml _menhir_env _menhir_stack _menhir_s _v) : 'freshtv442)) : 'freshtv444)
@@ -3579,7 +3579,7 @@ and _menhir_goto_atom : _menhir_env -> 'ttv_tail -> _menhir_state -> 'tv_atom ->
             _menhir_run74 _menhir_env (Obj.magic _menhir_stack)
         | TIMES ->
             _menhir_run67 _menhir_env (Obj.magic _menhir_stack)
-        | IN ->
+        | THEN ->
             let (_menhir_env : _menhir_env) = _menhir_env in
             let (_menhir_stack : (('freshtv313 * _menhir_state * 'tv_ident)) * _menhir_state * 'tv_atom) = Obj.magic _menhir_stack in
             ((let ((_menhir_stack, _menhir_s, (x : 'tv_ident)), _, (y : 'tv_atom)) = _menhir_stack in

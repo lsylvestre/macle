@@ -22,9 +22,10 @@ let rec r_e env = function
     Case(r_a env a,
          List.map (fun (c,e) -> (c,r_e env e)) hs,
          r_e env e)
-| DoIn(bs,e) -> 
-    let r_b env (x,a) = x, r_a env a in
-    DoIn(List.map (r_b env) bs,r_e env e)
+| DoThen(bs,e) -> 
+    DoThen(List.map (fun (x,a) -> 
+                       x, r_a env a) bs, (* pas besoin de renommer x *)
+           r_e env e)
 | Continue a -> 
     Continue (r_a env a)
 | State (q,args) ->

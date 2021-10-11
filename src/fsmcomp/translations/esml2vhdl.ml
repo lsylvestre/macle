@@ -89,14 +89,16 @@ let c_const fmt c =
       fmt 
       "X\"00000001\"" (* constant 0 as immediate OCaml value *)
 
-let c_atom fmt a = 
+let c_atom env fmt a = 
   let open Atom in
   let rec pp_atom ~paren fmt a =
     match a with 
     | State q -> 
         c_state fmt q
-    | Var x -> 
-        c_ident fmt x
+    | Var x ->
+        (match List.assoc_opt x env with
+        | Some a -> pp_atom ~paren fmt a
+        | None -> c_ident fmt x)
     | Const c -> 
         c_const fmt c
     | Prim p -> 
@@ -154,54 +156,63 @@ let c_atom fmt a =
   in
   pp_atom ~paren:false fmt a
 
-let assign fmt x pp y = 
+let assign env fmt x pp y = 
   fprintf fmt "%a <= %a;" c_ident x pp y
 
-let rec c_exp d fmt e = 
-  let rec c_exp_aux d fmt e =
+let rec c_exp env d fmt e = 
+  let rec c_exp_aux env d fmt e =
   match e with
   | Atom a -> 
-      assign fmt d c_atom a
-  | Set(x,a,e) -> 
-      fprintf fmt "@[<v>%a@,%a@]"
-        (fun fmt a -> assign fmt x c_atom a) a
-        (c_exp d) e
+      assign env fmt d (c_atom env) a
+  | DoThen(bs,e) ->
+      (* the Quartus® II software supports multiple assignments 
+         to the same signal even though the last one assigned takes 
+         precedence.
+
+          https://www.intel.com/content/www/us/en/support/programmable/articles/000085525.html
+      *)
+      fprintf fmt "@[<v>";
+      List.iter (fun (x,a) ->
+         assign env fmt x (c_atom env) a;
+         fprintf fmt "@,") bs;
+      c_exp (bs@env) d fmt e;
+      fprintf fmt "@]";
   | If(a,e1,((If _) as e2)) ->
       fprintf fmt "%a then@,%a@]@,@[<v 2>elsif %a@]@,"
-        c_atom a 
-        (c_exp d) e1
-        (c_exp_aux d) e2
+        (c_atom env) a 
+        (c_exp env d) e1
+        (c_exp_aux env d) e2
   | If(a,e1,e2) ->
       fprintf fmt "%a then@,%a@]@,@[<v 2>else@,%a@]@,end if;"
-        c_atom a 
-        (c_exp d) e1
-        (c_exp d) e2
+        (c_atom env) a 
+        (c_exp env d) e1
+        (c_exp env d) e2
   | Case(a,hs,e) ->
       let c_atom_case fmt a = 
         (match hs with 
-        | ((Atom.Int _),_)::es -> fprintf fmt "to_integer(%a)" c_atom a
-        | _ -> c_atom fmt a) in
+        | ((Atom.Int _),_)::es -> fprintf fmt "to_integer(%a)" (c_atom env) a
+        | _ -> c_atom env fmt a) in
       let c_const_case fmt = function
       | Atom.Int n -> fprintf fmt "%d" n
       | c -> c_const fmt c in
       let c_case_handler d fmt (c,e) = 
         fprintf fmt "@[<v 2>when %a =>@,%a@]" 
           c_const_case c
-          (c_exp d) e
+          (c_exp env d) e
       in
       fprintf fmt "@[<v 2>case %a is@,%a@,@[<v 2>when others =>@,%a@]@,end case;"
         c_atom_case a 
         (pp_print_list (c_case_handler d)) hs
-        (c_exp d) e
+        (c_exp env d) e
   in 
   match e with
-  | If _ -> fprintf fmt "@[<v 2>if "; c_exp_aux d fmt e
-  | _ -> c_exp_aux d fmt e 
+  | If _ -> fprintf fmt "@[<v 2>if "; c_exp_aux env d fmt e
+  | _ -> c_exp_aux env d fmt e 
 
 let c_transition (s:state) fmt (q,e) = 
   fprintf fmt "@[<v 2>when %a =>@,%a@]" 
     c_state q
-    (c_exp s) e
+    (c_exp [] s) e
 
 let c_transitions (s:state) fmt ts = 
   pp_print_list
@@ -221,7 +232,7 @@ let rec default_value fmt ty =
 let c_automaton ~reset ~clock (state_var:state) locals fmt (ts,e) =
   fprintf fmt "@[<v 2>process(%s,%s) begin@," reset clock;
   fprintf fmt "@[<v 2>if %s = '1' then@," reset;
-  c_exp state_var fmt e; 
+  c_exp [] state_var fmt e; 
   fprintf fmt "@]@,";
   fprintf fmt "@[<v 2>elsif rising_edge(%s) then@," clock;
   fprintf fmt "@[<v 2>case %s is@," state_var;

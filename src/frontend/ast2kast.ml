@@ -62,13 +62,13 @@ let access ?(callbk=fun x -> x) ts tv p args =
   new_local_signal := (v,tv) :: !new_local_signal;
   let open VSML in
   ([((get,xs),
-     DoIn([("avm_rm_address",
+     DoThen([("avm_rm_address",
             Prim(p, (List.map (fun (x,_) -> Atom.Var x) xs)));
            ("avm_rm_read", Const (Std_logic One))],
           State(read,[])));
     ((read,[]),
      If (Prim(Binop Eq,[Var "avm_rm_waitrequest";Const (Std_logic Zero)]),
-         DoIn ([("avm_rm_read",Const (Std_logic Zero));
+         DoThen ([("avm_rm_read",Const (Std_logic Zero));
                 (v,Prim(FromCaml (translate_type tv),[Var "avm_rm_readdata"]))],
                (Atom (callbk (Atom.Var v)))),
          State(read,[])))],
@@ -84,7 +84,7 @@ let assign tt ts p args new_exp =
   let ktt = translate_type tt in
   let open VSML in
   ([((eval,(x,ktt)::(List.map2 (fun x t -> (x,translate_type t)) xs ts)),
-     DoIn([("avm_wm_writedata",
+     DoThen([("avm_wm_writedata",
             Prim(ToCaml ktt,[Var x]));
            ("avm_wm_address",
             Prim(p,List.map (fun x -> Atom.Var x) xs));
@@ -92,7 +92,7 @@ let assign tt ts p args new_exp =
             Const (Std_logic One))],State(write,[])));
     ((write,[]),
      If (Prim(Binop Eq,[Var "avm_wm_waitrequest";Const (Std_logic Zero)]),
-         DoIn([("avm_wm_write",Const (Std_logic Zero))],
+         DoThen([("avm_wm_write",Const (Std_logic Zero))],
               Atom(Const Unit)),
          State(write,[])))],
    State(eval,new_exp::args))
@@ -228,7 +228,7 @@ let rec translate_exp env e =
                   (i,TConst TInt),idx';
                   (x,translate_type ty),e'],
           let t_start = 
-            ((start,[]), DoIn([("avm_wm_writedata", Prim(ToCaml kty,[Var x]));
+            ((start,[]), DoThen([("avm_wm_writedata", Prim(ToCaml kty,[Var x]));
                                ("avm_wm_address",
                                 Prim(CamlComputedField,
                                      [Atom.Var a;Atom.Var i]));
@@ -238,7 +238,7 @@ let rec translate_exp env e =
           and t_write =
             ((write,[]), If (Prim(Binop Eq,[Var "avm_wm_waitrequest";
                                             Const (Std_logic Zero)]),
-                             DoIn([("avm_wm_write",Const (Std_logic Zero))],
+                             DoThen([("avm_wm_write",Const (Std_logic Zero))],
                                   Atom(Const Unit)),
                                   State(write,[]))) in
         LetIn([( (ignore,TConst TUnit),([t_start;t_write],State(start,[])) )], 

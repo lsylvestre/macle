@@ -11,8 +11,7 @@ let mk_rdy l =
   "rdy_"^l
 
 let set_multiple_atoms bs e =
-  let set (x,a) e = PSML.Set(x,a, e) in
-  List.fold_right set bs e
+  PSML.DoThen(bs, e)
 
 let let_multiple bs e =
   let let_ (x,fsm) e = VSML.LetIn([(x,fsm)], e) in
@@ -33,7 +32,7 @@ let no_do fsm =
         check e1; check e2
     | Case(_,hs,e) -> 
         List.iter (fun (_,e) -> check e) hs; check e
-    | DoIn _ -> 
+    | DoThen _ -> 
         raise Found 
     | LetIn (bs,e) ->
         List.iter (fun (_,fsm) -> check_fsm fsm) bs;
@@ -86,8 +85,8 @@ let rec c_automaton ~i ~o ~idle ~start ~rdy ~result ~ty (ts,e) =
     let* e' = c_e idle result e in
     let t = ((idle,[]),
              If(Atom.(bool_of_std_logic @@ mk_var start),
-                Set(rdy,Atom.mk_std_logic' Zero,e'),
-                Set(rdy,Atom.mk_std_logic' One,State(idle,[])))) in
+                DoThen([rdy,Atom.mk_std_logic' Zero],e'),
+                DoThen([rdy,Atom.mk_std_logic' One],State(idle,[])))) in
     let* () = out ([],t::ts',[(i,start,Ktypes.(TConst TStd_logic));
                           (o,rdy,Ktypes.(TConst TStd_logic));
                           (o,result,ty)]) in
@@ -99,7 +98,7 @@ and c_e idle result e : PSML.exp m =
   let open VSML in
   match e with
   | Atom a -> 
-      ret @@ PSML.Set(result,a,State(idle,[]))
+      ret @@ PSML.DoThen([result,a],State(idle,[]))
   | State(q,args) ->
       ret @@ PSML.State(q,args)
   | If(a,e1,e2) ->
@@ -114,12 +113,9 @@ and c_e idle result e : PSML.exp m =
                    ret (c,e')) hs in
       let* e' = c_e idle result e in
       ret @@ PSML.Case(a,hs',e')
-  | DoIn(bs,e) ->
-      let q = Gensym.gensym "q" in
+  | DoThen(bs,e) ->
       let* e' = c_e idle result e in 
-      let t = (q,[]), e' in
-      let* () = out ([],[t],[]) in
-      ret @@ set_multiple_atoms bs @@ PSML.State(q,[])
+      ret @@ PSML.DoThen(bs,e')
   | LetIn(bs,e) when List.for_all (function (_,([],e)) -> is_atom e | _ -> false) bs ->
       let q = Gensym.gensym "q" in
       let* e' = c_e idle result e in

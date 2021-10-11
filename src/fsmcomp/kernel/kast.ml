@@ -25,7 +25,7 @@ module ESML = struct
   and exp =
   | Atom of atom
   | If of (atom * exp * exp)
-  | Set of (ident * atom * exp)
+  | DoThen of ((ident * atom) list * exp)
   | Case of (atom * (const * exp) list * exp)  
 end
 
@@ -41,7 +41,7 @@ module PSML = struct
   and exp =
   | Atom of atom
   | If of (atom * exp * exp)
-  | Set of (ident * atom * exp)
+  | DoThen of ((ident * atom) list * exp)
   | State of (state * atom list)
   | Continue of atom
   | Case of (atom * (const * exp) list * exp)  
@@ -59,7 +59,7 @@ module VSML = struct
   and exp =
   | Atom of atom
   | If of (atom * exp * exp)
-  | DoIn of ((ident * atom) list * exp)
+  | DoThen of ((ident * atom) list * exp)
   | State of (state * atom list)
   | Continue of atom
   | Case of (atom * (const * exp) list * exp)
