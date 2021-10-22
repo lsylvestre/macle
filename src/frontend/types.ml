@@ -44,7 +44,7 @@ let rec print_ty fmt ty =
       fprintf fmt "{tvar <- %a}" print_ty t
   | TFun(ts,t) ->
       fprintf fmt "(";
-      List.iter (print_ty fmt) ts;
+      List.iter (print_ty fmt) ts;  (* manque "*" *)
       fprintf fmt "->";
       print_ty fmt t;
       fprintf fmt ")"

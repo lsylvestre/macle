@@ -85,13 +85,11 @@ let parse filename =
       |> (mk_vhdl)
     | PLATFORM -> 
         let (circuits,main) = Parser.platform_macle Lexer.token lexbuf in    
-        if !flag_simulation then 
+        (if !flag_simulation then 
           let cs = List.map Typing.typing_circuit circuits in
           let open Format in
-          (List.iter (Ast2ocaml.pp_circuit std_formatter) cs; 
-           fprintf std_formatter "@[<v>@,;; (* OCaml program *)@,%s@]@." main;
-           exit 0)
-        else 
+          List.iter (Ast2ocaml.pp_circuit std_formatter) cs; 
+          fprintf std_formatter "@[<v>@,;; (* OCaml program *)@,%s@]@." main);
         List.iter (function c ->        
                     (* initialize heap_access / heap_assign *)
                     Esml2vhdl.allow_heap_access := false;
@@ -138,14 +136,24 @@ let parse filename =
         (* code added at the top of the file main.ml 
            of each application generated 
          *)
-        fprintf fmt "open Platform ;;@,@,";
+        fprintf fmt "@[<v>open Platform ;;@,@,";
         fprintf fmt "let print_int = Serial.write_int ;;@,";
         fprintf fmt "let print_string = Serial.write_string ;;@,@,";
-
+        
         if !Gen_platform.flag_print_compute_time 
            || !Gen_platform.flag_print_compute_time_short then
           fprintf fmt "Timer.init() ;;@,@,";
+        
+        if !Gen_platform.flag_print_compute_time then 
+         (fprintf fmt "let chrono f =@,";
+          fprintf fmt "  let t1 = Timer.get_us () in@,";
+          fprintf fmt "  let _ = f () in@,";
+          fprintf fmt "  let t2 = Timer.get_us () in@,";
+          fprintf fmt "  t2-t1@,@,");
+        
+        fprintf fmt "@[<b>";
         pp_print_text fmt main;
+        fprintf fmt "@]@]@.";
         pp_print_flush fmt ();
         close_out app_oc
     );

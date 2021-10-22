@@ -22,7 +22,9 @@ type token =
   | ONE
   | NOT
   | NEQ
+  | MOD
   | MINUS
+  | MATCH
   | LT
   | LPAREN
   | LIST_TL
@@ -43,8 +45,10 @@ type token =
   | EOF
   | ELSE
   | DOT
+  | DIV
   | COMMA
   | COLONEQ
+  | COLCOL
   | CIRCUIT
   | CASE
   | BOOL_LIT of (bool)

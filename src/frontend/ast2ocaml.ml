@@ -11,6 +11,40 @@ module PP_TMACLE = struct
   open TMACLE
   open Types
 
+let rec print_ty fmt ty = 
+  let open Format in 
+  match ty with
+  | TConst tc -> 
+    (match tc with
+    | TStd_logic -> 
+        pp_print_text fmt "std_logic"
+    | TBool -> 
+        pp_print_text fmt "bool"
+    | TInt -> 
+        pp_print_text fmt "int"
+    | TUnit -> 
+        pp_print_text fmt "unit")
+  | TCamlRef ty ->
+      fprintf fmt "(%a) ref"
+         print_ty ty
+  | TCamlArray ty ->
+      fprintf fmt "(%a) array"
+         print_ty ty
+  | TCamlList ty ->
+      fprintf fmt "(%a) list"
+         print_ty ty
+  | TPtr ->
+      pp_print_text fmt "ptr"
+  | TVar{contents=V n} -> 
+      fprintf fmt "'a%d" n
+  | TVar{contents=Ty t} -> 
+      fprintf fmt "{tvar <- %a}" print_ty t
+  | TFun(ts,t) ->
+      fprintf fmt "(";
+      List.iter (fun ty -> print_ty fmt ty; fprintf fmt "->") ts;  (* manque "*" *)
+      print_ty fmt t;
+      fprintf fmt ")"
+
   let rec pp_exp fmt e = 
     match e with
     | Var x -> 
@@ -22,6 +56,12 @@ module PP_TMACLE = struct
         pp_exp e1
         PP_atom.pp_binop p
         pp_exp e2
+  | Prim (Unop Mod2,[e]) ->
+      fprintf fmt "(%a mod 2)"
+        pp_exp e
+  | Prim (Unop DivBy2,[e]) ->
+      fprintf fmt "(%a / 2)"
+        pp_exp e
   | Prim (Unop p,[e]) ->
           fprintf fmt "(%a %a)"
             PP_atom.pp_unop p

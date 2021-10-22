@@ -13,14 +13,14 @@
 %token <string> IDENT
 %token <bool> BOOL_LIT 
 %token <int> INT_LIT
-%token PLUS MINUS TIMES LT LE GT GE NEQ LAND NOT
+%token PLUS MINUS TIMES LT LE GT GE NEQ LAND NOT MOD DIV
 %token UMINUS
 %token ZERO ONE /* std_logic values */
 %token CIRCUIT
 %token <string> QUOTE
 %token SEMI_SEMI
 %token BANG COLONEQ
-%token LBRACKET RBRACKET LIST_HD LIST_TL LIST_FOLD_LEFT  
+%token LBRACKET RBRACKET LIST_HD LIST_TL LIST_FOLD_LEFT MATCH COLCOL
 %token DOT RIGHT_ARROW ARRAY_LENGTH ARRAY_FOLD_LEFT ARRAY_MAP
 
 %nonassoc IN
@@ -103,6 +103,10 @@ mexp:
 | ARRAY_MAP LPAREN n=INT_LIT COMMA q=ident COMMA earr=mexp RPAREN
   { mk_loc $loc @@ MACLE.CamlPrim(ArrayMapBy(n,q,earr)) }
 
+| MATCH e=mexp WITH PIPE? LBRACKET RBRACKET RIGHT_ARROW e1=mexp 
+  PIPE x=ident COLCOL xs=ident RIGHT_ARROW e2=mexp
+    { mk_match $loc e e1 x xs e2 }
+
 | error { syntax_error $loc }
 
 platform(p): 
@@ -151,6 +155,14 @@ prim(E):
 | a1=E c=binop a2=E             { Atom.mk_binop c a1 a2 }
 | NOT a=E                       { Atom.mk_unop Atom.Not a  }
 | MINUS a=E %prec UMINUS        { Atom.mk_unop Atom.Uminus a }
+| a=E MOD n=INT_LIT 
+  { match n with
+    | 2 -> Atom.mk_unop Atom.Mod2 a
+    | _ -> syntax_error ~msg:"modulo 2 expected" $loc }
+| a=E DIV n=INT_LIT 
+  { match n with
+    | 2 -> Atom.mk_unop Atom.DivBy2 a
+    | _ -> syntax_error ~msg:"division by 2 expected" $loc }
 
 std_logic:
 | ZERO { Atom.Zero }

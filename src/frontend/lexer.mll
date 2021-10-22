@@ -10,6 +10,7 @@ rule token = parse
 | '('               { LPAREN }
 | ')'               { RPAREN }
 | ":="              { COLONEQ }
+| "::"              { COLCOL }
 | ','               { COMMA }
 | ';'               { SEMICOL }
 | '|'               { PIPE }
@@ -20,6 +21,7 @@ rule token = parse
 | "and"             { AND }
 | "in"              { IN }
 | "if"              { IF }
+| "match"           { MATCH }
 | "then"            { THEN }
 | "else"            { ELSE }
 | "true"            { BOOL_LIT true }
@@ -29,6 +31,8 @@ rule token = parse
 | "+"               { PLUS }
 | "-"               { MINUS }
 | "*"               { TIMES }
+| "/"               { DIV }
+| "mod"             { MOD }
 | "<"               { LT }
 | "<="              { LE }
 | ">"               { GT }

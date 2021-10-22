@@ -86,3 +86,26 @@ module MACLE = struct
   | ListFoldLeft of ident * exp * exp
 
 end
+
+(** [mk_match loc e e1 x xs e2] builds the expression
+    (match e with [] -> e1 | x::xs -> e2) expended :
+
+  ~ (let #y = e in
+     if #y = [] then e1 
+     else let x = list_hd #y
+          and xs = list_tl #y in
+          e2)
+*)
+let mk_match loc e e1 x xs e2 =
+  let open MACLE in
+  let mkl = mk_loc loc in
+  let y = Gensym.gensym "y" in
+  let var_y = mkl @@ Var y in
+  mkl @@ Let([(y,e)],
+             mkl @@ If(mkl @@ Prim(Binop Eq,
+                                   [ var_y;
+                                     mkl @@ Const EmptyList ]),
+                       e1,
+                       mkl @@ Let([(x,mkl @@ CamlPrim (ListHd var_y));
+                                   (xs,mkl @@ CamlPrim (ListTl var_y))],
+                                   e2)))

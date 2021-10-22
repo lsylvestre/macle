@@ -118,7 +118,7 @@ let c_atom env fmt a =
             (pp_atom ~paren:true) a
      | (Unop Mod2,[a]) -> 
         parenthesized ~paren fmt @@ fun () ->
-          fprintf fmt "mod2(%a)"   (* todo *)
+          fprintf fmt "(%a) mod 2"   (* todo *)
             (pp_atom ~paren:true) a
      | (Unop p,[a]) -> 
         parenthesized ~paren fmt @@ fun () ->

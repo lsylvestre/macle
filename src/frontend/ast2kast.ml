@@ -212,7 +212,18 @@ let rec translate_exp env e =
                        (y,translate_type ty),translate_exp env e], 
                       e')
     | ArrayAssign{arr;idx;ty;e} ->
-        Esml2vhdl.allow_heap_assign := true;
+        let x = Gensym.gensym "x" in
+        let y = Gensym.gensym "y" in
+        let z = Gensym.gensym "z" in
+        let ts,e' = assign ty [TPtr;TConst TInt] CamlComputedField [Atom.Var x;Atom.Var y] (Atom.Var z) in
+        ts,VSML.LetIn([(x,translate_type (TCamlArray ty)),translate_exp env arr;
+                       (y,TConst TInt),translate_exp env idx;
+                       (z,translate_type ty),translate_exp env e], 
+                      e')
+      | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
+        assert false (* already expanded *)  
+      )
+        (* Esml2vhdl.allow_heap_assign := true;
         let a = Gensym.gensym "arr" in
         let i = Gensym.gensym "idx" in
         let x = Gensym.gensym "x" in
@@ -246,7 +257,7 @@ let rec translate_exp env e =
     | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
         assert false (* already expanded *)  
    )
-
+*)
 
 let compile_circuit {x;xs;s;ty=t;e} =
   let fsm = translate_exp [] e in
