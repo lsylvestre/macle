@@ -87,22 +87,22 @@ let rec print_ty fmt ty =
         ~pp_sep:(fun fmt () -> fprintf fmt " ") pp_exp fmt es;
        fprintf fmt ")@,"
   | Let(bs,e,_) -> 
-      fprintf fmt "@[<v>let ";
+      fprintf fmt "@[<v>(let ";
       pp_print_list 
           ~pp_sep:(fun fmt () -> fprintf fmt "@, and ") 
            (fun fmt ((x,ty),e) -> 
                fprintf fmt "%s : %a = %a" x print_ty ty pp_exp e) fmt bs;
-       fprintf fmt "@,@]@,in %a" pp_exp e
+       fprintf fmt "@,@]@,in %a)" pp_exp e
   | LetFun(t,e) ->
-      fprintf fmt "@[<v>(let ";
+      fprintf fmt "(@[<v 2>let ";
       pp_transition fmt t;
       fprintf fmt "@ in ";
       pp_exp fmt e;
       fprintf fmt ")@]"
   | LetRec(ts,e) ->
-      fprintf fmt "@[<v>(@[<v 2>let rec ";
+      fprintf fmt "(@[<v>@[<v 2>let rec ";
        pp_print_list 
-          ~pp_sep:(fun fmt () -> fprintf fmt "@,@[<v 2>and ") 
+          ~pp_sep:(fun fmt () -> fprintf fmt "@]@,@[<v 2>and ") 
          pp_transition fmt ts;
       fprintf fmt "@]in ";
       pp_exp fmt e;
@@ -162,11 +162,10 @@ let rec print_ty fmt ty =
   and pp_transition fmt ((q,xs),e) = 
     fprintf fmt "%s " q; 
     pp_print_list 
-      ~pp_sep:(fun fmt () -> fprintf fmt " ") 
+      ~pp_sep:(fun fmt () -> fprintf fmt "@ ") 
          pp_tyconstr fmt xs;
-    fprintf fmt " = @,";
+    fprintf fmt " =@,";
     pp_exp fmt e;
-    fprintf fmt "@]"
 
   and pp_tyconstr fmt (x,ty) = 
     fprintf fmt "(%s : %a)" x print_ty ty
@@ -177,7 +176,7 @@ let rec print_ty fmt ty =
       ~pp_sep:(fun fmt () -> fprintf fmt "@ ") pp_tyconstr fmt xs;
     fprintf fmt " =@,";
     pp_exp fmt e;
-    fprintf fmt "@]"
+    fprintf fmt "@ ;;@,@]"
 end
 
 let pp_circuit = PP_TMACLE.pp_circuit

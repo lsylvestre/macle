@@ -15,6 +15,8 @@ let add_file f = inputs := !inputs @ [f]
 
 let flag_lang = ref PLATFORM
 
+let flag_verbose = ref false
+
 let flag_vhdl_only = ref false
 let flag_show_ast = ref false
 let flag_show_typed_ast = ref false
@@ -50,8 +52,8 @@ let () =
                             \ an automaton-based representation");
       ("-no-propagation",   Arg.Clear flag_propagation, 
                             "disable constant/copy propagation");
-
       (* ************** *)
+      ("verb", Arg.Set flag_verbose, "print additionnal informations");
       ("-simul", Arg.Set flag_simulation,"generate an OCaml program");  
       ("-app",  set_lang PLATFORM,"PLATFORM");
       ("-vsml",  set_lang VSML,"VSML input file");
@@ -72,7 +74,8 @@ let parse filename =
   Esml2vhdl.allow_heap_access := false;
   Esml2vhdl.allow_heap_assign := false;
 
-  Printf.printf "\n- process %s:\n" filename;
+  if !flag_verbose then Printf.printf "\ninfos: process %s:\n" filename;
+
   try
     let lexbuf = Lexing.from_channel ic in
     (match !flag_lang with
@@ -85,12 +88,15 @@ let parse filename =
       |> (mk_vhdl)
     | PLATFORM -> 
         let (circuits,main) = Parser.platform_macle Lexer.token lexbuf in    
-        (if !flag_simulation then 
+        if !flag_simulation then    
           let cs = List.map Typing.typing_circuit circuits in
           let open Format in
+          fprintf std_formatter "@[<v>";
           List.iter (Ast2ocaml.pp_circuit std_formatter) cs; 
-          fprintf std_formatter "@[<v>@,;; (* OCaml program *)@,%s@]@." main);
-        List.iter (function c ->        
+          fprintf std_formatter "@,%s" main;
+          fprintf std_formatter "@]@."
+        else List.iter 
+               (function c ->        
                     (* initialize heap_access / heap_assign *)
                     Esml2vhdl.allow_heap_access := false;
                     Esml2vhdl.allow_heap_assign := false;
