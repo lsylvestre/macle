@@ -117,8 +117,14 @@ let rec translate_exp env e =
                    (x,translate_type ty),translate_exp env e) bs 
       in
       let fsm = translate_exp env e in
-      let res = Gensym.gensym "res" in
-      [],LetIn(bs',LetIn([(res,translate_type ty),fsm],Atom(Atom.Var res)))
+      (match fsm with
+       (* ici, c'est important de gérer le cas où [fsm] est une application f(a1,...an),
+          car [let res = f(a1,...an) in res] n'est pas programme correct : f "s'échappe"
+          de la liaison [res = f(a1,...an)] *)
+      | [],e -> [],LetIn(bs',e)
+      | _ -> 
+         let res = Gensym.gensym "res" in
+         [],LetIn(bs',LetIn([(res,translate_type ty),fsm],Atom(Atom.Var res))))
   | LetFun _ -> 
       (* non-recursive functions are systematically inlined *)
       assert false 

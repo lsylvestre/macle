@@ -115,11 +115,12 @@ let parse filename =
          
                     let c = Ast2kast.compile_circuit c in
                     
+                    let c = Vsml_rename.rename_vsml_circuit c in
+
                     if !flag_show_kast then  
                       Pprint_kast.PP_VSML.pp_circuit Format.err_formatter c; 
 
-                    c
-                    |> Vsml_rename.rename_vsml_circuit
+                    c                  
                     |> Vsml_states_rename.rename_states_vsml_circuit
                     |> Vsml2psml.compile_vsml_circuit
                     |> Psml2esml.compile_psml_circuit
