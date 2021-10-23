@@ -35,7 +35,7 @@ let rec r_e env = function
     let env' = env_ext @ env in
     let bs' = 
       let ren ((_,ty),fsm) (_,x') =
-        let fsm' = r_automaton env' fsm in 
+        let fsm' = r_automaton env fsm in 
         ((x',ty),fsm')
       in
       List.map2 ren bs env_ext
