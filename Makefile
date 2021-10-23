@@ -99,7 +99,9 @@ clean:	clean-cc
 	rm -f `find . -name "*.cmi"`
 	rm -f $(EXE)
 	
-clean-cc:
+clean-cc:	clean-gen-cc prepare
+
+clean-gen-cc:
 	(cd gen; make clean)
 
 check-cc:

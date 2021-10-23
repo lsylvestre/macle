@@ -12,7 +12,7 @@ A Tool dedicated to FPGA programming, directly usable in combination with [O2B](
 ```
 pi ::= ci_1 ;; ... ci_n ;;;[;]^* P   (where P is an OCaml program)
 ci ::= circuit x(x1,... xn) = e 
-e ::= c | x | x(e1,... en) | let rec f(x1,...xn) = e and ... in e
+e ::= c | x | x(e1,... en) | let rec x(x1,...xn) = e and ... in e
     | if e1 then e2 else e3
     | let x = e and ... in e
     | <unop> e
@@ -37,13 +37,13 @@ print_int @@ fact 6;;
 
 ### Usage
 
-```shell
+```
 $ make
 ```
 
 - simulation (translation into OCaml)
 
-```shell
+```ocaml
 $ ./compile bench/simples/fact.ml -simul
 let fact (n : int) =
   (let rec aux (acc : int)
@@ -66,7 +66,7 @@ $
 
 - code generation (VHDL)
 
-```shell
+```vhdl
 $ ./compile bench/simples/fact.ml -vhdl-only
 library ieee;
 use ieee.std_logic_1164.all;

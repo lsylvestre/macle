@@ -99,14 +99,15 @@ let rec print_ty fmt ty =
       fprintf fmt "@ in ";
       pp_exp fmt e;
       fprintf fmt ")@]"
-  | LetRec(ts,e) ->
+  | LetRec(ts,e,ty) ->
       fprintf fmt "(@[<v>@[<v 2>let rec ";
        pp_print_list 
           ~pp_sep:(fun fmt () -> fprintf fmt "@]@,@[<v 2>and ") 
          pp_transition fmt ts;
-      fprintf fmt "@]in ";
+      fprintf fmt "@]in (";
       pp_exp fmt e;
-      fprintf fmt ")@]"
+      fprintf fmt " : %a" print_ty ty;
+      fprintf fmt "))@]"
   | CamlPrim e -> 
   (match e with
   | RefAccess (e,ty) -> 
@@ -129,15 +130,15 @@ let rec print_ty fmt ty =
         pp_exp idx
         pp_exp e
   | ArrayLength (e,ty) ->
-      fprintf fmt "Array.length (%a : %a array)"
+      fprintf fmt "(Array.length (%a : %a array))"
         pp_exp e
         print_ty ty
   | ListHd (e,ty) ->
-      fprintf fmt "List.hd (%a : %a list)"
+      fprintf fmt "(List.hd (%a : %a list))"
         pp_exp e
         print_ty ty
   | ListTl (e,ty) ->
-      fprintf fmt "List.tl (%a : %a list)"
+      fprintf fmt "(List.tl (%a : %a list))"
         pp_exp e
         print_ty ty
   | ArrayMapBy(n,x,ty,e) ->
@@ -145,38 +146,38 @@ let rec print_ty fmt ty =
      let z = Gensym.gensym "z" in
      let i = Gensym.gensym "i" in
      fprintf fmt "(let %s : %a array = %a in@," y print_ty ty pp_exp e;
-     fprintf fmt "Array.iteri (fun %s %s -> %s.(%s) <- %s (%s.(%s))) %s)" i z y i x y i y
+     fprintf fmt "(Array.iteri (fun %s %s -> %s.(%s) <- %s (%s.(%s))) %s))" i z y i x y i y
   | ArrayFoldLeft(x,ty1,ty2,acc,e) ->
-      fprintf fmt "Array.fold_left %s (%a : %a) (%a : %a array)" x 
+      fprintf fmt "(Array.fold_left %s (%a : %a) (%a : %a array))" x 
         pp_exp acc 
         print_ty ty1 
         pp_exp e
         print_ty ty2
   | ListFoldLeft(x,ty1,ty2,acc,e) ->
-      fprintf fmt "List.fold_left %s (%a : %a) (%a : %a list)" x 
+      fprintf fmt "(List.fold_left %s (%a : %a) (%a : %a list))" x 
         pp_exp acc 
         print_ty ty1 
         pp_exp e
         print_ty ty2
   )
   and pp_transition fmt ((q,xs),e) = 
-    fprintf fmt "%s " q; 
+    fprintf fmt "@[<b>%s@ " q; 
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt "@ ") 
          pp_tyconstr fmt xs;
-    fprintf fmt " =@,";
+    fprintf fmt " =@]@,";
     pp_exp fmt e;
 
   and pp_tyconstr fmt (x,ty) = 
     fprintf fmt "(%s : %a)" x print_ty ty
 
   let pp_circuit fmt {x;xs;e} =
-    fprintf fmt "@[<v 2>let %s " x;
+    fprintf fmt "@[<v 2>@[<b>let %s@ " x;
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt "@ ") pp_tyconstr fmt xs;
-    fprintf fmt " =@,";
+    fprintf fmt "@ @]=@,";
     pp_exp fmt e;
-    fprintf fmt "@ ;;@,@]"
+    fprintf fmt "@ ;;@,@]@,"
 end
 
 let pp_circuit = PP_TMACLE.pp_circuit

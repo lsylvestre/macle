@@ -22,7 +22,7 @@ circuit bang(r) =
   !r 
 
 ;;
-circuit assign(r) =
+circuit assign(r,x) =
   r := x 
 
 
@@ -32,7 +32,7 @@ let r = ref 42;;
 
 print_int (bang r);;
 
-assign(r,17);;
+assign r 17;;
 
 print_int (!r);;
 

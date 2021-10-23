@@ -120,24 +120,43 @@ let rec translate_exp env e =
       (match fsm with
        (* ici, c'est important de gérer le cas où [fsm] 
           est de la forme [([],e)].
-          En effet [let res = f(a1,...an) in res] n'est pas un programme correct,
-          puisque [f] "s'échappe" de la liaison [res = f(a1,...an)].
-          On veut produire [f(a1,...an)] directement. *)
+          Par ex, à partir de [([],App(Var f,[a1;...an]))],
+          - on veut produire [([],App(Var f,[a1;...an]))] 
+          - et non [([],Let([(Var res,App(Var f,[a1;...an]))],Var res))]
+            qui n'est pas un programme correct, puisque [f] "s'échappe" 
+            de la liaison [res = f(a1,...an)]. *)
       | [],e -> [],LetIn(bs',e)
       | _ -> 
          let res = Gensym.gensym "res" in
          [],LetIn(bs',LetIn([(res,translate_type ty),fsm],Atom(Atom.Var res))))
   | LetFun _ -> 
-      (* non-recursive functions are systematically inlined *)
+      (* non-recursive functions habe been systematically inlined before *)
       assert false 
-  | LetRec(bs,e) ->
+  | LetRec(bs,e,ty) ->
       let env' = List.map fst bs @ env in
       let ts =
-        List.concat @@ 
         List.map (fun ((q,xs),e) -> 
             let xs' = List.map (fun (x,t) -> (x,translate_type t)) xs in
-            let ts,e' = translate_exp env' e in
-            ((q,xs'),e')::ts) bs in
+            let fsm = translate_exp env' e in
+            let e' = match fsm with
+                     (* fsm est de la forme [(ts,e')] avec
+                        [ts] des "fonctions" locales dans lesquelles
+                        il peut y avoir des occurrences des xs' 
+                        (libres dans les ts).
+
+                        C'est pourquoi on doit conserver la hiérarchie 
+                        au niveau VSML.
+
+                        Optimisation : si [ts] est vide, on peut aplatir.
+                        *) 
+                     | [],e' -> e'
+                     | _ -> 
+                        let res = Gensym.gensym "res" in
+                        VSML.LetIn([(res,translate_type ty),fsm],
+                                   Atom(Atom.Var res))
+            in ((q,xs'),e')
+          ) bs 
+      in
       let (ts',e') = translate_exp env' e in
       (ts@ts',e')
   | If(e1,e2,e3,ty) -> 

@@ -27,8 +27,8 @@ let propagation e =
       mk_let bs (aux (env_ext@env) e) ty
   | LetFun((qxs,e1),e2) -> 
       LetFun((qxs,aux env e1),aux env e2)
-  | LetRec(bs,e) -> 
-      LetRec(Misc.map_snd (aux env) bs,aux env e)
+  | LetRec(bs,e,ty) -> 
+      LetRec(Misc.map_snd (aux env) bs,aux env e,ty)
   | App(x,es,ty) -> 
       let es' = List.map (aux env) es in
       (match List.assoc_opt x env with 

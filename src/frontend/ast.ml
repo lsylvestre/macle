@@ -25,7 +25,7 @@ module TMACLE = struct
   | If of (exp * exp * exp * ty)
   | Case of (exp * ty * (const * exp) list * exp * ty)  
   | App of (ident * exp list * ty)
-  | LetRec of ((ident * (ident * ty) list) * exp) list * exp
+  | LetRec of ((ident * (ident * ty) list) * exp) list * exp * ty
   | LetFun of ((ident * (ident * ty) list) * exp) * exp
   | Let of ((ident * ty) * exp) list * exp * ty
   | CamlPrim of interop

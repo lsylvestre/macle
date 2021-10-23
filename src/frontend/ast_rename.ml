@@ -31,7 +31,7 @@ let rec r_e env e = match e with
     let env' = List.map2 (fun (x,_) (x',_) -> x,x') xs xs' @ env in
     let e1' = r_e env' e1 in
     LetFun(((q',xs'),e1'),e2')
-| LetRec(bs,e) -> 
+| LetRec(bs,e,ty) -> 
     let qs = List.map (fun ((q,_),_) -> q) bs in
     let qs' = List.map (fun q -> gensym q) qs in
     let env' = List.combine qs qs' @ env in
@@ -44,7 +44,7 @@ let rec r_e env e = match e with
            let e' = r_e env'' e in
            ((q',xs'),e')) bs qs'
     in
-    LetRec(bs',e')
+    LetRec(bs',e',ty)
 | App(x,es,ty) -> 
     let es' = List.map (r_e env) es in
     App(r_ident env x, es',ty)

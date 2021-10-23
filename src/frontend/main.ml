@@ -53,12 +53,12 @@ let () =
       ("-no-propagation",   Arg.Clear flag_propagation, 
                             "disable constant/copy propagation");
       (* ************** *)
-      ("verb", Arg.Set flag_verbose, "print additionnal informations");
+      ("-verb", Arg.Set flag_verbose, "print additionnal informations");
       ("-simul", Arg.Set flag_simulation,"generate an OCaml program");  
       ("-app",  set_lang PLATFORM,"PLATFORM");
       ("-vsml",  set_lang VSML,"VSML input file");
       ("-vhdl-only", Arg.Set flag_vhdl_only,
-       "generates source files needed to extend an O2B platform")] 
+       "generates a VHDL source without other files needed to extend an O2B platform")] 
       add_file "Usage:\n  ./compile files" 
 
 let mk_vhdl ?labels ?(with_cc=false) c =
@@ -125,12 +125,11 @@ let parse filename =
 
                     if !flag_show_kast then  
                       Pprint_kast.PP_VSML.pp_circuit Format.err_formatter c; 
-
-                    c                  
-                    |> Vsml_states_rename.rename_states_vsml_circuit
-                    |> Vsml2psml.compile_vsml_circuit
-                    |> Psml2esml.compile_psml_circuit
-                    |> (mk_vhdl ~labels:false)
+             
+                    let c = Vsml_states_rename.rename_states_vsml_circuit c in
+                    let c = Vsml2psml.compile_vsml_circuit c in
+                    let c = Psml2esml.compile_psml_circuit c in
+                    mk_vhdl ~labels:false c
         ) circuits;
 
         let open Format in

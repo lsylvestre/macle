@@ -34,7 +34,7 @@ let rec occur x e =
   | LetFun(((q,xs),e1),e2) -> 
       (List.for_all (fun (y,_) -> y <> x) xs && occur x e1) ||
       (x <> q && occur x e2)
-  | LetRec(bs,e) -> 
+  | LetRec(bs,e,_) -> 
       (List.for_all (fun ((x',xs),_) ->
                        x <> x' && List.for_all (fun (y,_) -> x <> y) xs) bs) && 
       (List.exists (fun ((_,_),e) -> occur x e) bs || occur x e)
@@ -77,8 +77,8 @@ let substitution env e =
       Let(Misc.map_snd aux bs,aux e,ty)
   | LetFun((qxs,e1),e2) -> 
       LetFun((qxs,aux e1),aux e2)
-  | LetRec(bs,e) -> 
-      LetRec(Misc.map_snd aux bs,aux e)
+  | LetRec(bs,e,ty) -> 
+      LetRec(Misc.map_snd aux bs,aux e,ty)
   | App(x,es,ty) -> 
       let es' = List.map aux es in
       (match List.assoc_opt x env with 
@@ -132,7 +132,8 @@ let specialize_list xs es e =
 let fetch x env =
   match List.assoc_opt x env with
   | None ->
-      (* [x] doit être défini dans [env] puisque le programme est supposé bien typé *)
+      (* [x] doit être défini dans [env] 
+         puisque le programme est supposé bien typé *)
     Printf.printf "** %s" x; 
     assert false
   | Some (xs,e,bs) ->
@@ -152,9 +153,9 @@ let mk_list_fold_left q ty tyr init el =
                 Let([((acc2,tyr),App(q,[Var acc;Var x],tyr));
                      ((l2,tyl),CamlPrim(ListTl (Var l,ty)))],
                  App(q',[Var acc2;Var l2],tyr),tyr),tyr),tyr))],
-        App(q',[init;el],tyr))
+        App(q',[init;el],tyr),tyr)
 
-let mk_array_fold_left q ty tyr init earr = (* résultat inatendu !? *)
+let mk_array_fold_left q ty tyr init earr =
   let q' = Gensym.gensym "aux" in
   let y = Gensym.gensym "arr" in
   let n = Gensym.gensym "size" in
@@ -166,12 +167,12 @@ let mk_array_fold_left q ty tyr init earr = (* résultat inatendu !? *)
        Let([(n,TConst TInt),CamlPrim (ArrayLength (Var y,ty))],
        LetRec([((q',[(acc,tyr);(i,TConst TInt)]), 
                  If(Prim(Atom.Binop Ge,[Var i;Var n]),Var acc,
-                    Let([((x,ty),CamlPrim(ArrayAccess {arr=Var y;idx=Var i;ty}));
-                        ((acc2,tyr),App(q,[Var acc;Var x],tyr))],
+                    Let([((x,ty),CamlPrim(ArrayAccess {arr=Var y;idx=Var i;ty}))],
+                        Let([((acc2,tyr),App(q,[Var acc;Var x],tyr))],
                             App(q',[Var acc2;
                                     Prim(Atom.Binop Add,
-                                         [Var i;Const (Atom.mk_int 1)])],tyr),tyr),tyr))],
-               App(q',[init;Const (Atom.mk_int 0)],tyr)),tyr),tyr)
+                                         [Var i;Const (Atom.mk_int 1)])],tyr),tyr),tyr),tyr))],
+               App(q',[init;Const (Atom.mk_int 0)],tyr),tyr),tyr),tyr)
 
 let let_set bs ty e = 
   List.fold_right (fun b e -> mk_let [b] e ty) bs e
@@ -212,7 +213,7 @@ let mk_array_map n q ty e = (* résultat inatendu ! *)
                     let_par bs2 t_unit @@
                     let_set bs3 t_unit @@
                     App(q',[add (Var i) (Const (Int n))],t_unit)),t_unit))],
-              App(q',[Const (Int 0)],t_unit)),t_unit),t_unit)
+              App(q',[Const (Int 0)],t_unit),t_unit),t_unit),t_unit)
 
 
 let rec inline rec_env env e =
@@ -246,7 +247,7 @@ let rec inline rec_env env e =
       (* [b] est "poussé" dans l'environnement *)
       let env' = env_rec_extend [b] env in
       inline rec_env env' e
-  | LetRec(bs,e) ->
+  | LetRec(bs,e,_) ->
       (* les [bs] sont "poussés" dans l'environnement *)
       let env' = env_rec_extend ~recflag:true bs env in
       inline rec_env env' e
@@ -269,7 +270,7 @@ let rec inline rec_env env e =
                  let xs' = if x = y then xs2 else List.filter (fun (_,ty) -> not @@ is_fun_type ty) xs3 in
                  (y,xs'),e') bs
            in
-           let e1 = LetRec(bs',App(x,es',ty)) in
+           let e1 = LetRec(bs',App(x,es',ty),ty) in
            (* Pprint_ast.PP_TMACLE.pp_exp Format.err_formatter e1;*)
            e1
       else let bs' = List.combine xs2 es' in

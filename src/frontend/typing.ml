@@ -218,7 +218,7 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
                              unify loc env'' tr t;
                              ((q,List.combine xs tys),e')) ts env_ext in
       let ty,e' = typ_exp env' e in
-      ty,TMACLE.LetRec(ts',e')
+      ty,TMACLE.LetRec(ts',e',ty)
   | MACLE.Let(bs,e) ->
       let bs' = List.map (fun (x,e) -> 
                            let ty,e' = typ_exp env e in 
@@ -233,10 +233,10 @@ let rec canon_exp e =
   | LetFun(((x,xs),e1),e2) ->
       let xs' = List.map (fun (x,ty) -> x, canon ty) xs in
       LetFun(((x,xs'),canon_exp e1),canon_exp e2) 
-  | LetRec(ts,e) ->
+  | LetRec(ts,e,ty) ->
       let ts' = List.map (fun ((q,xs),e) -> 
           (q,List.map (fun (x,ty) -> (x,canon ty)) xs),canon_exp e) ts in
-        LetRec(ts',canon_exp e)
+        LetRec(ts',canon_exp e,canon ty)
   | If(e1,e2,e3,ty) -> 
       If(canon_exp e1,canon_exp e2,canon_exp e3,canon ty)
   | Case(e1,ty,hs,e2,ty2) -> 

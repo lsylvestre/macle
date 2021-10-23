@@ -32,14 +32,13 @@ let rec r_e env = function
     State (q,List.map (r_a env) args)
 | LetIn(bs,e) ->
     let env_ext = List.map (fun ((x,_),_) -> x,gensym x) bs in
-    let env' = env_ext @ env in
     let bs' = 
       let ren ((_,ty),fsm) (_,x') =
-        let fsm' = r_automaton env fsm in 
-        ((x',ty),fsm')
+        ((x',ty), r_automaton env fsm)
       in
       List.map2 ren bs env_ext
     in
+    let env' = env_ext @ env in
     LetIn(bs',r_e env' e)
 
 and r_a env a = 
