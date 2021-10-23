@@ -118,9 +118,11 @@ let rec translate_exp env e =
       in
       let fsm = translate_exp env e in
       (match fsm with
-       (* ici, c'est important de gérer le cas où [fsm] est une application f(a1,...an),
-          car [let res = f(a1,...an) in res] n'est pas programme correct : f "s'échappe"
-          de la liaison [res = f(a1,...an)] *)
+       (* ici, c'est important de gérer le cas où [fsm] 
+          est de la forme [([],e)].
+          En effet [let res = f(a1,...an) in res] n'est pas un programme correct,
+          puisque [f] "s'échappe" de la liaison [res = f(a1,...an)].
+          On veut produire [f(a1,...an)] directement. *)
       | [],e -> [],LetIn(bs',e)
       | _ -> 
          let res = Gensym.gensym "res" in
