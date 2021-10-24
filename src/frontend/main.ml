@@ -26,7 +26,7 @@ let flag_show_kast = ref false
 let flag_propagation = ref true (* optimisation *)
 
 let flag_simulation = ref false
-
+let flag_vsml2esml = ref false
 let () =
  let set_lang c = 
    Arg.Unit (fun () -> flag_lang := c)
@@ -52,13 +52,24 @@ let () =
                             \ an automaton-based representation");
       ("-no-propagation",   Arg.Clear flag_propagation, 
                             "disable constant/copy propagation");
-      (* ************** *)
-      ("-verb", Arg.Set flag_verbose, "print additionnal informations");
-      ("-simul", Arg.Set flag_simulation,"generate an OCaml program");  
-      ("-app",  set_lang PLATFORM,"PLATFORM");
-      ("-vsml",  set_lang VSML,"VSML input file");
-      ("-vhdl-only", Arg.Set flag_vhdl_only,
-       "generates a VHDL source without other files needed to extend an O2B platform")] 
+
+      ("-verb",             Arg.Set flag_verbose, 
+                            "print additionnal informations");
+      ("-vsml2esml",        Arg.Set flag_vsml2esml, 
+                            "alternative compilation scheme\
+                            \ (from VSML to ESML)");
+      ("-simul",            Arg.Set flag_simulation,
+                            "generate an OCaml program");  
+      
+      ("-app",              set_lang PLATFORM,
+                            "Macle input (default)");
+      ("-vsml",             set_lang VSML,
+                            "VSML input");
+      
+      ("-vhdl-only",        Arg.Set flag_vhdl_only,
+                            "generates a VHDL source without other\
+                            \ files needed to extend an O2B platform") ] 
+      
       add_file "Usage:\n  ./compile files" 
 
 let mk_vhdl ?labels ?(with_cc=false) c =
@@ -127,8 +138,11 @@ let parse filename =
                       Pprint_kast.PP_VSML.pp_circuit Format.err_formatter c; 
              
                     let c = Vsml_states_rename.rename_states_vsml_circuit c in
-                    let c = Vsml2psml.compile_vsml_circuit c in
-                    let c = Psml2esml.compile_psml_circuit c in
+                    let c = if !flag_vsml2esml 
+                            then Vsml2esml.compile_vsml_circuit c 
+                            else let c = Vsml2psml.compile_vsml_circuit c in
+                                 Psml2esml.compile_psml_circuit c
+                    in
                     mk_vhdl ~labels:false c
         ) circuits;
 
@@ -146,8 +160,8 @@ let parse filename =
         fprintf fmt "let print_int = Serial.write_int ;;@,";
         fprintf fmt "let print_string = Serial.write_string ;;@,@,";
         
-        if !Gen_platform.flag_print_compute_time 
-           || !Gen_platform.flag_print_compute_time_short then
+        if !Gen_platform.flag_print_compute_time || 
+           !Gen_platform.flag_print_compute_time_short then
           fprintf fmt "Timer.init() ;;@,@,";
         
         if !Gen_platform.flag_print_compute_time then 

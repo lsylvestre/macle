@@ -25,6 +25,7 @@ OBJS=src/misc/misc.cmo\
      src/fsmcomp/translations/esml2vhdl.cmo\
      src/fsmcomp/translations/psml2esml.cmo\
      src/fsmcomp/translations/vsml2psml.cmo\
+     src/fsmcomp/translations/vsml2esml.cmo\
      \
      src/fsmcomp/target/gen_hw_tcl.cmo\
      src/fsmcomp/target/gen_platform.cmo\
