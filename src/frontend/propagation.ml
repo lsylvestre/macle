@@ -24,7 +24,7 @@ let propagation e =
          | ((x,_),((Var _ | Const _) as e)) -> Left (x,e) 
          | b -> Right b) bs' 
       in
-      mk_let bs (aux (env_ext@env) e) ty
+      mk_let ~ty bs (aux (env_ext@env) e)
   | LetFun((qxs,e1),e2) -> 
       LetFun((qxs,aux env e1),aux env e2)
   | LetRec(bs,e,ty) -> 

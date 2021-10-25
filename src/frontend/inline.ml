@@ -143,7 +143,7 @@ let rec inline rec_env env e =
   | Let(bs,e,ty) ->
       let bs' = List.map (fun (x,e) -> (x,inline rec_env env e)) bs in 
       let e' = inline rec_env env e in (* moins les xi *)
-      mk_let bs' e' ty
+      mk_let ~ty bs' e'
   | LetFun(((x,args),e1),e2) ->
       (* [b] est "poussé" dans l'environnement *)
       (* renomme [x] au passage *) 
@@ -177,7 +177,7 @@ let rec inline rec_env env e =
       else
         let bs',e0 = specialize_list xs es' e in
         let e' = inline rec_env env e0 in
-        mk_let bs' e' ty
+        mk_let ~ty bs' e'
   | CamlPrim r -> 
     (match r with
     | RefAccess (e,t) -> 

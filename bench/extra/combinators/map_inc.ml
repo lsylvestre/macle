@@ -41,14 +41,11 @@ circuit map64(a) =
 
 ;;;;
 
-let print_int = Serial.write_int ;;
-let print_string = Serial.write_string ;;
-
 let print_array a = 
   Array.iter (fun n -> print_int n; print_string ",") a;
   print_string "---------\n"
 
-let mk_array () = Array.init (1*64) (fun x -> x mod 40 + 1);;
+let mk_array () = Array.init (1*64) (fun x -> x);;
 
 let a = mk_array ();;
 map1 (a);;

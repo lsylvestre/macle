@@ -2,81 +2,76 @@ open Ast
 open TMACLE
 open Types
 
+open Gensym
+
 let mk_list_fold_left q ty tyr init el =
-  let q' = Gensym.gensym "aux" in
-  let l = Gensym.gensym "l" in
-  let l2 = Gensym.gensym "l2" in
-  let x = Gensym.gensym "x" in
-  let acc = Gensym.gensym "acc" in
-  let acc2 = Gensym.gensym "acc2" in
+  let q' = gensym "aux" in
+  let l = gensym "l" in
+  let l2 = gensym "l2" in
+  let x = gensym "x" in
+  let acc = gensym "acc" in
+  let acc2 = gensym "acc2" in
   let tyl = TCamlList ty in
-  LetRec([((q',[(acc,tyr);(l,tyl)]), 
-         If(Prim(Atom.Binop Eq,[Var l;Const EmptyList]),Var acc,
-            Let([((x,ty),CamlPrim(ListHd (Var l,ty)))],
-                Let([((acc2,tyr),App(q,[Var acc;Var x],tyr));
-                     ((l2,tyl),CamlPrim(ListTl (Var l,ty)))],
-                 App(q',[Var acc2;Var l2],tyr),tyr),tyr),tyr))],
-        App(q',[init;el],tyr),tyr)
+  mk_letrec1 ~ty:tyr q' [(acc,tyr);(l,tyl)]
+    (mk_if ~ty:tyr (mk_binop Eq (Var l) mk_empty_list) (Var acc) @@
+     mk_let1 ~ty:tyr (x,ty) (mk_list_hd (Var l) ~ty_elem:ty) @@
+     mk_let ~ty:tyr [ ((acc2,tyr),mk_app ~ty:tyr q [Var acc;Var x]);
+                      ((l2,tyl),(mk_list_tl (Var l) ~ty_elem:ty)) ] @@
+        (mk_app ~ty:tyr q' [Var acc2;Var l2])) @@
+  mk_app ~ty:tyr  q' [init;el]
 
 let mk_array_fold_left q ty tyr init earr =
-  let q' = Gensym.gensym "aux" in
-  let y = Gensym.gensym "arr" in
-  let n = Gensym.gensym "size" in
-  let i = Gensym.gensym "idx" in
-  let x = Gensym.gensym "x" in
-  let acc = Gensym.gensym "acc" in
-  let acc2 = Gensym.gensym "acc2" in
-  Let([((y,TCamlArray ty),earr)],
-       Let([(n,TConst TInt),CamlPrim (ArrayLength (Var y,ty))],
-       LetRec([((q',[(acc,tyr);(i,TConst TInt)]), 
-                 If(Prim(Atom.Binop Ge,[Var i;Var n]),Var acc,
-                    Let([((x,ty),CamlPrim(ArrayAccess {arr=Var y;idx=Var i;ty}))],
-                        Let([((acc2,tyr),App(q,[Var acc;Var x],tyr))],
-                            App(q',[Var acc2;
-                                    Prim(Atom.Binop Add,
-                                         [Var i;Const (Atom.mk_int 1)])],tyr),tyr),tyr),tyr))],
-               App(q',[init;Const (Atom.mk_int 0)],tyr),tyr),tyr),tyr)
+  let q' = gensym "aux" in
+  let y = gensym "arr" in
+  let n = gensym "size" in
+  let i = gensym "idx" in
+  let x = gensym "x" in
+  let acc = gensym "acc" in
+  let acc2 = gensym "acc2" in
 
-let let_set bs ty e = 
-  List.fold_right (fun b e -> mk_let [b] e ty) bs e
+  mk_let1 ~ty:tyr (y,TCamlArray ty) earr @@
+  mk_let1 ~ty:tyr (n,t_int) (mk_array_length ~ty (Var y)) @@
+  mk_letrec1 ~ty:tyr q' [(acc,tyr);(i,t_int)] ( 
+      mk_if   ~ty:tyr (mk_binop Ge (Var i) (Var n)) (Var acc) @@
+      mk_let1 ~ty:tyr (x,ty) (mk_array_access (Var y) (Var i) ~ty_elem:ty) @@
+      mk_let1 ~ty:tyr (acc2,tyr) (mk_app ~ty:tyr q [Var acc;Var x]) @@
+      mk_app  ~ty:tyr q' [Var acc2; mk_binop Add (Var i) (mk_int 1)] 
+    ) @@
+    mk_app ~ty:tyr q' [init; mk_int 0]
 
-let let_par bs ty e = 
-  mk_let bs e ty 
 
-let add a b = Prim (Atom.Binop Add,[a;b])
+let mk_array_map n q ty e =
+  let q' = gensym "aux" in
+  let y = gensym "arr" in
+  let size = gensym "size" in
+  let i = gensym "idx" in
+  let elem = gensym "element" in
 
-let t_unit = TConst TUnit
+  mk_let1 ~ty:t_unit (y,TCamlArray ty) e @@
+  mk_let1 ~ty:t_unit (size,t_int) (mk_array_length ~ty (Var y)) @@
+  mk_letrec1 ~ty:t_unit q' [(i,t_int)]
+  (mk_if ~ty:t_unit (mk_binop Ge (Var i) (Var size)) mk_unit @@
+   mk_if ~ty:t_unit (mk_binop Ge (Var i) (mk_binop Sub (Var size) (mk_int n)))  
+      (mk_let1 ~ty:t_unit (elem,ty) (mk_array_access (Var y) (Var i) ~ty_elem:ty) @@
+       mk_seq ~ty:t_unit 
+              (mk_array_assign (Var y) (Var i) (mk_app ~ty q [Var elem]) ~ty_elem:ty)
+              (mk_app ~ty:t_unit q' [mk_binop Add (Var i) (mk_int 1)])) @@
 
-let mk_array_map n q ty e = (* résultat inatendu ! *)
-  let q' = Gensym.gensym "aux" in
-  let y = Gensym.gensym "arr" in
-  let size = Gensym.gensym "size" in
-  let i = Gensym.gensym "idx" in
-  let elem = Gensym.gensym "element" in
-  Let([((y,TCamlArray ty),e)],
-     Let([(size,TConst TInt),CamlPrim (ArrayLength (Var y,ty))],
-       LetRec([((q',[(i,TConst TInt)]), 
-                 If(Prim(Atom.Binop Ge,[Var i;Var size]),(* Prim(Atom.Binop Gt,[Var i;Prim (Binop Sub,[Var size;Const (Int n)])]), *)
-                    Const Unit,
-                    (let bs = List.init n (fun k -> 
-                                ((elem^string_of_int k,ty),
-                                 CamlPrim(ArrayAccess {arr=Var y;
-                                                       idx=add (Var i) (Const (Int k));
-                                                       ty})))
-                    in
-                    let bs2 = List.init n (fun k -> (elem^string_of_int k,ty),
-                                                        App(q,[Var(elem^string_of_int k)],ty)) in
-                    let bs3 =  List.init n (fun k ->
-                                 (("ignore",TConst TUnit),
-                                  CamlPrim(ArrayAssign {arr=Var y;
-                                                        idx=add (Var i) (Const (Int k));
-                                                        e=Var (elem^string_of_int k);
-                                                        ty}))) in
-                    let_set bs t_unit @@
-                    let_par bs2 t_unit @@
-                    let_set bs3 t_unit @@
-                    App(q',[add (Var i) (Const (Int n))],t_unit)),t_unit))],
-              App(q',[Const (Int 0)],t_unit),t_unit),t_unit),t_unit)
+        (let bs = List.init n (fun k -> 
+                    ((elem^string_of_int k,ty),
+                     (mk_array_access (Var y) 
+                        (mk_binop Add (Var i) (mk_int k)) ~ty_elem:ty)))
+        in
+        mk_let_cascad ~ty:t_unit bs @@
+        mk_let ~ty:t_unit 
+          (List.init n (fun k -> (elem^string_of_int k,ty),
+                           mk_app ~ty q [Var(elem^string_of_int k)])) @@
+        mk_seqs ~ty:t_unit (List.init n (fun k ->
+                      (mk_array_assign (Var y) (mk_binop Add (Var i) (mk_int k)) 
+                          (Var (elem^string_of_int k)) ~ty_elem:ty))) @@
+        (mk_app ~ty:t_unit q' [mk_binop Add (Var i) (mk_int n)])))
+  (mk_app ~ty:t_unit q' [mk_int 0])
+     
 
 
 let rec expand e =
@@ -96,8 +91,8 @@ let rec expand e =
       Case(e1',ty,hs',e2',ty2)
   | Let(bs,e,ty) ->
       let bs' = List.map (fun (x,e) -> (x,expand e)) bs in 
-      let e' = expand e in (* moins les xi *)
-      mk_let bs' e' ty
+      let e' = expand e in
+      mk_let ~ty bs' e'
   | LetFun((d,e1),e2) ->
       LetFun((d,expand e1),expand e2)
   | LetRec(bs,e,ty) ->

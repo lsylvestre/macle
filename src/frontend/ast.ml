@@ -42,10 +42,67 @@ module TMACLE = struct
   | ArrayFoldLeft of ident * ty * ty * exp * exp
   | ListFoldLeft of ident * ty * ty * exp * exp
 
-  let mk_let bs e ty = 
+  let t_unit = TConst TUnit
+  let t_int = TConst TInt
+
+  let mk_let ~ty bs e = 
   match bs with
   | [] -> e 
   | _ -> Let(bs,e,ty)
+
+  let mk_let1 ~ty x e1 e2 =
+    mk_let ~ty [(x,e1)] e2
+
+  let mk_let_cascad ~ty bs e = 
+    List.fold_right (fun b e -> mk_let ~ty [b] e) bs e
+
+  let mk_seq ~ty e1 e2 =
+    let x = Gensym.gensym "ignore" in
+    mk_let1 ~ty (x,t_unit) e1 e2
+
+  let rec mk_seqs ~ty es e =
+     match es with
+     | [] -> e
+     | e::es' -> mk_seq ~ty e (mk_seqs ~ty es' e)
+
+  let mk_letrec ~ty bs e =
+    LetRec(bs,e,ty)
+
+  let mk_letrec1 ~ty x args e1 e2 =
+    mk_letrec ty [((x,args),e1)] e2
+
+  let mk_if ~ty e1 e2 e3 = 
+    If(e1,e2,e3,ty)
+
+  let mk_app ~ty x args =
+    App(x,args,ty)
+
+  let mk_binop op e1 e2 = 
+    Prim(Atom.Binop op,[e1;e2])
+
+  let mk_int n = 
+    Const (Int n)
+
+  let mk_unit = 
+    Const Unit
+
+  let mk_empty_list = 
+    Const EmptyList
+
+  let mk_array_length ~ty e =
+    CamlPrim (ArrayLength (e,ty))
+  
+  let mk_array_access arr idx ~ty_elem =
+    CamlPrim (ArrayAccess {arr;idx;ty=ty_elem})
+  
+  let mk_array_assign arr idx e ~ty_elem =
+    CamlPrim (ArrayAssign {arr;idx;e;ty=ty_elem})
+
+  let mk_list_hd e ~ty_elem =
+    CamlPrim(ListHd (e,ty_elem))
+
+  let mk_list_tl e ~ty_elem =
+    CamlPrim(ListTl (e,ty_elem))
 
 end
 
