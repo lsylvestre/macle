@@ -27,6 +27,7 @@ let flag_propagation = ref true (* optimisation *)
 
 let flag_simulation = ref false
 let flag_vsml2esml = ref false
+
 let () =
  let set_lang c = 
    Arg.Unit (fun () -> flag_lang := c)
@@ -41,15 +42,14 @@ let () =
                             "display the syntax tree (AST)\
                             \ of the input program");
       ("-show-typed-ast",   Arg.Set flag_show_typed_ast, 
-                            "display the *typed* AST\
+                            "display the typed AST\
                             \ of the input program");
       ("-show-inlined-ast", Arg.Set flag_show_inlined_ast, 
                             "display the typed AST\
                             \ of the input program\
-                            \ *after inlining*");
+                            \ after inlining");
       ("-show-kast",        Arg.Set flag_show_kast, 
-                            "display the *kernel AST* (VSML),\
-                            \ an automaton-based representation");
+                            "display the kernel AST (VSML)");
       ("-no-propagation",   Arg.Clear flag_propagation, 
                             "disable constant/copy propagation");
 
@@ -121,6 +121,7 @@ let parse filename =
                     if !flag_show_typed_ast then
                       Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
 
+                    let c = Macro_expansion.expand_circuit c in
                     let c = Inline.inline_circuit c in
                     let c = if !flag_propagation 
                             then Propagation.constant_copy_propagation c 

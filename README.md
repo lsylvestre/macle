@@ -82,36 +82,36 @@ entity fact is
        signal result : out caml_int);
 end entity;
 architecture RTL of fact is
-  signal acc_0002_0004 : caml_int := to_signed(0,31);
-  signal n_0003_0005 : caml_int := to_signed(0,31);
+  signal acc_0x5 : caml_int := to_signed(0,31);
+  signal n_0x6 : caml_int := to_signed(0,31);
   
-  type STATE_0007_T is (IDLE, AUX_0001_0006);
-  signal STATE_0007 : STATE_0007_T;
+  type STATE#8_T is (IDLE, AUX_0x7);
+  signal STATE#8 : STATE#8_T;
   
 begin
   process(reset,clk) begin
     if reset = '1' then
-      state_0007 <= IDLE;
+      state_0x8 <= IDLE;
     elsif rising_edge(clk) then
-      case STATE_0007 is
+      case STATE#8 is
         when IDLE =>
           if start = '1' then
             rdy <= '0';
-            acc_0002_0004 <= to_signed(1,31);
-            n_0003_0005 <= n;
-            state_0007 <= AUX_0001_0006;
+            acc_0x5 <= to_signed(1,31);
+            n_0x6 <= n;
+            state_0x8 <= AUX_0x7;
           else
             rdy <= '1';
-            state_0007 <= IDLE;
+            state_0x8 <= IDLE;
           end if;
-        when AUX_0001_0006 =>
-          if n_0003_0005 <= to_signed(0,31) then
-            result <= acc_0002_0004;
-            state_0007 <= IDLE;
+        when AUX_0x7 =>
+          if n_0x6 <= to_signed(0,31) then
+            result <= acc_0x5;
+            state_0x8 <= IDLE;
           else
-            acc_0002_0004 <= RESIZE((acc_0002_0004 * n_0003_0005),31);
-            n_0003_0005 <= n_0003_0005 - to_signed(1,31);
-            state_0007 <= AUX_0001_0006;
+            acc_0x5 <= RESIZE((acc_0x5 * n_0x6),31);
+            n_0x6 <= n_0x6 - to_signed(1,31);
+            state_0x8 <= AUX_0x7;
           end if;
         end case;
       end if;

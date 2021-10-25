@@ -34,9 +34,13 @@ let c_unop fmt p =
 
 (* - two underscores can't be consecutive 
    - an identifier can't start with '_' 
-   - an identifier can't contain a single quote *)
+   - an identifier can't contain a single quote
+
+   - '#' character introduced before by Gensym.gensym 
+     is replaced by the string "_id" *)
 let vhdl_ident x =
   let open String in
+  let x = concat "_0x" @@ split_on_char '#' x in
   let y = concat "CHAR_ASCII39" @@ split_on_char '\'' x in
   y |> split_on_char '_' 
   |> List.map (function "" -> "CHAR_ASCII95" | s -> s)

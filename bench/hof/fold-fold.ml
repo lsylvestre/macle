@@ -6,6 +6,7 @@ circuit main(l0) =
       | x::xs -> aux(f(a,x),xs) in 
     aux(a0,l) in
   let plus(a,b) = a + b in
-  fold_left(plus,0,l0)
+  let f(a,b) = a + b + fold_left(plus,0,l0) in
+  fold_left(f,0,l0)
 ;;;;
 

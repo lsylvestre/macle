@@ -8,8 +8,7 @@ open Types
     Non tail-recursive functions are not supported : 
     this silently generates incorrect code (to be improved !) *)
 
-(* Inlining specializes the higher order functions, possibly recursive.
-   TODO : fix mutual recursive HOFs *)
+(* higher order functions that are not recursive are specialized *)
 
 (** Inlining assume that each identifier binded by Let/LetFun/LetRec is unique:
     a renaming of identifiers must be perform on the source code beforehand. *)
@@ -50,16 +49,12 @@ let rec occur x e =
            occur x r || occur x e
        | ArrayAssign{arr;idx;e} ->
            occur x arr || occur x idx || occur x e
-       | (ListFoldLeft(q,_,_,init,e) 
-          | ArrayFoldLeft(q,_,_,init,e)) ->
-           x = q || occur x init || occur x e
-       | ArrayMapBy(_,q,_,e) ->
-           x = q || occur x e)
+       | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
+           assert false (* already expanded *) )
 
 
-let env_rec_extend ?(recflag=false) bs env =
-  let rframe = ref (if recflag then bs else []) in
-  List.map (fun ((x,xs),e) -> (x,(xs,e,rframe))) bs @ env    
+let env_extend bs env =
+  List.map (fun ((x,xs),e) -> (x,(xs,e,bs))) bs @ env    
 
 
 let substitution env e =
@@ -102,12 +97,8 @@ let substitution env e =
             RefAssign{r=aux r;e= aux e;ty}
        | ArrayAssign{arr;idx;e;ty} ->
            ArrayAssign{arr= aux arr;idx= aux idx;e= aux e;ty}
-       | ListFoldLeft(q,ty1,ty2,init,e) ->
-           ListFoldLeft(q,ty1,ty2,aux init,aux e) 
-       | ArrayFoldLeft(q,ty1,ty2,init,e) ->
-           ArrayFoldLeft(q,ty1,ty2,aux init,aux e)
-       | ArrayMapBy(n,q,ty,e) ->
-           ArrayMapBy(n,q,ty,aux e))
+       | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
+           assert false (* already expanded *) )
 in aux e
 
 
@@ -116,17 +107,12 @@ let is_fun_type = function
 | _ -> false
 
 let specialize_list xs es e =
-  let bs = (List.combine xs es) in
-  let env,bs = List.partition_map (fun ((x,ty) as xty,e) -> 
-      if is_fun_type ty then Left(x,e) else Right (xty,e)) @@ bs in
-  let xs,es = List.split bs in
-  (* *********************************** *)
-  (* 
-  List.iter (fun (x,e') -> Format.fprintf Format.err_formatter "%s / %a IN %a\n#########" x Pprint_ast.PP_TMACLE.pp_exp e'  Pprint_ast.PP_TMACLE.pp_exp e;) env;
-  Format.fprintf Format.err_formatter "[[[[%a]]]]]]\n"  Pprint_ast.PP_TMACLE.pp_exp (substitution env e);
-  *)
-  (* *********************************** *)
-  xs,es,env,substitution env e
+  let bs = List.combine xs es in
+  let env,bs = 
+    List.partition_map (fun (((x,ty),e) as b) -> 
+                         if is_fun_type ty then Left(x,e) 
+                                           else Right b) bs in
+  bs,substitution env e
 
 
 let fetch x env =
@@ -136,95 +122,10 @@ let fetch x env =
          puisque le programme est supposé bien typé *)
     Printf.printf "** %s" x; 
     assert false
-  | Some (xs,e,bs) ->
-      (xs,e,bs)
-
-let mk_list_fold_left q ty tyr init el =
-  let q' = Gensym.gensym "aux" in
-  let l = Gensym.gensym "l" in
-  let l2 = Gensym.gensym "l2" in
-  let x = Gensym.gensym "x" in
-  let acc = Gensym.gensym "acc" in
-  let acc2 = Gensym.gensym "acc2" in
-  let tyl = TCamlList ty in
-  LetRec([((q',[(acc,tyr);(l,tyl)]), 
-         If(Prim(Atom.Binop Eq,[Var l;Const EmptyList]),Var acc,
-            Let([((x,ty),CamlPrim(ListHd (Var l,ty)))],
-                Let([((acc2,tyr),App(q,[Var acc;Var x],tyr));
-                     ((l2,tyl),CamlPrim(ListTl (Var l,ty)))],
-                 App(q',[Var acc2;Var l2],tyr),tyr),tyr),tyr))],
-        App(q',[init;el],tyr),tyr)
-
-let mk_array_fold_left q ty tyr init earr =
-  let q' = Gensym.gensym "aux" in
-  let y = Gensym.gensym "arr" in
-  let n = Gensym.gensym "size" in
-  let i = Gensym.gensym "idx" in
-  let x = Gensym.gensym "x" in
-  let acc = Gensym.gensym "acc" in
-  let acc2 = Gensym.gensym "acc2" in
-  Let([((y,TCamlArray ty),earr)],
-       Let([(n,TConst TInt),CamlPrim (ArrayLength (Var y,ty))],
-       LetRec([((q',[(acc,tyr);(i,TConst TInt)]), 
-                 If(Prim(Atom.Binop Ge,[Var i;Var n]),Var acc,
-                    Let([((x,ty),CamlPrim(ArrayAccess {arr=Var y;idx=Var i;ty}))],
-                        Let([((acc2,tyr),App(q,[Var acc;Var x],tyr))],
-                            App(q',[Var acc2;
-                                    Prim(Atom.Binop Add,
-                                         [Var i;Const (Atom.mk_int 1)])],tyr),tyr),tyr),tyr))],
-               App(q',[init;Const (Atom.mk_int 0)],tyr),tyr),tyr),tyr)
-
-let let_set bs ty e = 
-  List.fold_right (fun b e -> mk_let [b] e ty) bs e
-
-let let_par bs ty e = 
-  mk_let bs e ty 
-
-let add a b = Prim (Atom.Binop Add,[a;b])
-
-let t_unit = TConst TUnit
-
-let mk_array_map n q ty e = (* résultat inatendu ! *)
-  let q' = Gensym.gensym "aux" in
-  let y = Gensym.gensym "arr" in
-  let size = Gensym.gensym "size" in
-  let i = Gensym.gensym "idx" in
-  let elem = Gensym.gensym "element" in
-  Let([((y,TCamlArray ty),e)],
-     Let([(size,TConst TInt),CamlPrim (ArrayLength (Var y,ty))],
-       LetRec([((q',[(i,TConst TInt)]), 
-                 If(Prim(Atom.Binop Ge,[Var i;Var size]),(* Prim(Atom.Binop Gt,[Var i;Prim (Binop Sub,[Var size;Const (Int n)])]), *)
-                    Const Unit,
-                    (let bs = List.init n (fun k -> 
-                                ((elem^string_of_int k,ty),
-                                 CamlPrim(ArrayAccess {arr=Var y;
-                                                       idx=add (Var i) (Const (Int k));
-                                                       ty})))
-                    in
-                    let bs2 = List.init n (fun k -> (elem^string_of_int k,ty),
-                                                        App(q,[Var(elem^string_of_int k)],ty)) in
-                    let bs3 =  List.init n (fun k ->
-                                 (("ignore",TConst TUnit),
-                                  CamlPrim(ArrayAssign {arr=Var y;
-                                                        idx=add (Var i) (Const (Int k));
-                                                        e=Var (elem^string_of_int k);
-                                                        ty}))) in
-                    let_set bs t_unit @@
-                    let_par bs2 t_unit @@
-                    let_set bs3 t_unit @@
-                    App(q',[add (Var i) (Const (Int n))],t_unit)),t_unit))],
-              App(q',[Const (Int 0)],t_unit),t_unit),t_unit),t_unit)
-
+  | Some b ->
+      b
 
 let rec inline rec_env env e =
-  (* *********************************** *)
-  (*
-  let open Format in
-  List.iter (fun (x,_) -> fprintf err_formatter "%s," x) env;
-   fprintf err_formatter "\n----\n";
-  Pprint_ast.PP_TMACLE.pp_exp Format.err_formatter e;Format.(fprintf err_formatter "\n==============\n");
-  *)
-  (* *********************************** *)
   match e with
   | (Var _ | Const _) -> e
   | Prim (c,es) ->
@@ -243,40 +144,40 @@ let rec inline rec_env env e =
       let bs' = List.map (fun (x,e) -> (x,inline rec_env env e)) bs in 
       let e' = inline rec_env env e in (* moins les xi *)
       mk_let bs' e' ty
-  | LetFun(b,e) ->
+  | LetFun(((x,args),e1),e2) ->
       (* [b] est "poussé" dans l'environnement *)
-      let env' = env_rec_extend [b] env in
-      inline rec_env env' e
+      (* renomme [x] au passage *) 
+      let x' = Gensym.gensym x in
+      let theta = [(x,Var x')] in
+      let b' = ((x',args),substitution theta e1) in
+      let env' = env_extend [b'] env in
+      inline rec_env env' (substitution theta e2)
   | LetRec(bs,e,_) ->
       (* les [bs] sont "poussés" dans l'environnement *)
-      let env' = env_rec_extend ~recflag:true bs env in
+      (* renomme au passage les bs : c'est nécessaire en cas d'application
+         d'une fonction [f] à une expression qui contient [f]. 
+       *)
+      let bs' = List.map (fun ((x,args),e) -> ((Gensym.gensym x,args),e)) bs in
+      let env0 = List.map2 (fun ((x,_),e) ((x',_),_) -> (x,Var x')) bs bs' in
+      let e = substitution env0 e in 
+      let bs'' = List.map (fun ((x,args),e) ->((x,args),substitution env0 e)) bs' in
+      let env' = env_extend bs'' env in
       inline rec_env env' e
   | App(x,es,ty) ->
-      let (xs,e,rbs) = fetch x env in
-      let bs = !rbs in
-      (*  List.filter_map (fun ((_,ty),e) -> 
-          if is_fun_type ty then None else Some (inline rec_env env e)) 
-          (List.combine xs es) in *)
-      
-      let xs2,es2,env0,e0 = specialize_list xs es e in
-      let es' = List.map (inline rec_env env) es2 in
-      if List.mem x rec_env then App(x,es',ty) else
-      if List.exists (fun (_,e) -> occur x e) bs (* fonction récursive *)
-      then let bs' = 
-             List.map (fun ((y,xs3),e) ->
+      let es' = List.map (inline rec_env env) es in
+      let (xs,e,bs) = fetch x env in
+      if List.mem x rec_env then App(x,es',ty) (* déjà traité *) 
+      else if List.exists (fun (_,e) -> occur x e) bs (* fonction récursive *)
+           then let bs' = 
+               List.map (fun ((y,xs'),e) ->
                  let rec_env' = List.map (fun ((x,_),_) -> x) bs @ rec_env in
-                 let e' = if x = y then inline rec_env' env e0 else inline rec_env' env e in
-                 (* Pprint_ast.PP_TMACLE.pp_exp Format.err_formatter e';Format.(fprintf err_formatter "\n%s~~~~~~\n" y); *)
-                 let xs' = if x = y then xs2 else List.filter (fun (_,ty) -> not @@ is_fun_type ty) xs3 in
-                 (y,xs'),e') bs
-           in
-           let e1 = LetRec(bs',App(x,es',ty),ty) in
-           (* Pprint_ast.PP_TMACLE.pp_exp Format.err_formatter e1;*)
-           e1
-      else let bs' = List.combine xs2 es' in
-           let e' = inline rec_env env e0 in
-           (* let bs'' = List.filter (fun ((x,ty),_) -> not (is_fun_type ty)) bs' in *)
-           mk_let bs' e' ty
+                 (y,xs'),inline rec_env' env e) bs
+             in
+             LetRec(bs',App(x,es',ty),ty)
+      else
+        let bs',e0 = specialize_list xs es' e in
+        let e' = inline rec_env env e0 in
+        mk_let bs' e' ty
   | CamlPrim r -> 
     (match r with
     | RefAccess (e,t) -> 
@@ -297,15 +198,8 @@ let rec inline rec_env env e =
         CamlPrim(ListHd(inline rec_env env e,ty))
     | ListTl (e,ty) -> 
         CamlPrim(ListTl(inline rec_env env e,ty))
-    | ListFoldLeft(q,ty,tyr,init,e) ->
-        inline rec_env env @@
-        mk_list_fold_left q ty tyr init e
-    | ArrayFoldLeft(q,ty,tyr,init,e) ->
-        inline rec_env env @@
-        mk_array_fold_left q ty tyr init e
-    | ArrayMapBy(n,q,ty,e) -> 
-        inline rec_env env @@
-        mk_array_map n q ty e
+    | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
+        assert false (* already expanded *) 
     )
 
 
