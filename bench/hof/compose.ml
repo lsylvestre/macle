@@ -5,3 +5,4 @@ circuit compose(k) =
   compose(inc,test,k)
 ;;;;
 
+compose(true);;

@@ -25,7 +25,10 @@ let flag_show_kast = ref false
 
 let flag_propagation = ref true (* optimisation *)
 
-let flag_simulation = ref false
+let flag_simulation_typed = ref false
+let flag_simulation_inlined = ref false
+
+let simulation_level = ref 0
 let flag_vsml2esml = ref false
 
 let () =
@@ -58,8 +61,10 @@ let () =
       ("-vsml2esml",        Arg.Set flag_vsml2esml, 
                             "alternative compilation scheme\
                             \ (from VSML to ESML)");
-      ("-simul",            Arg.Set flag_simulation,
-                            "generate an OCaml program");  
+      ("-simul",            Arg.Set flag_simulation_typed,
+                            "generate an OCaml program from typed AST");
+      ("-simul-inlined-ast",Arg.Set flag_simulation_inlined,
+                            "generate an OCaml program from inlined AST");
       
       ("-app",              set_lang PLATFORM,
                             "Macle input (default)");
@@ -99,55 +104,59 @@ let parse filename =
       |> (mk_vhdl)
     | PLATFORM -> 
         let (circuits,main) = Parser.platform_macle Lexer.token lexbuf in    
-        if !flag_simulation then    
-          let cs = List.map Typing.typing_circuit circuits in
-          let open Format in
-          fprintf std_formatter "@[<v>";
-          List.iter (Ast2ocaml.pp_circuit std_formatter) cs; 
+        List.iter 
+         (function c ->        
+              (* initialize heap_access / heap_assign *)
+              Esml2vhdl.allow_heap_access := false;
+              Esml2vhdl.allow_heap_assign := false;
+              
+              if !flag_show_ast then
+                Pprint_ast.PP_MACLE.pp_circuit Format.err_formatter c;
+
+              let c = Typing.typing_circuit c in
+              
+              let c = Ast_rename.rename_ast c in
+
+              if !flag_show_typed_ast then
+                Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
+
+              if !flag_simulation_typed 
+              then Ast2ocaml.pp_circuit Format.std_formatter c else
+
+              let c = Macro_expansion.expand_circuit c in
+              let c = Inline.inline_circuit c in
+              let c = if !flag_propagation 
+                      then Propagation.constant_copy_propagation c 
+                      else c 
+              in
+              
+              if !flag_show_inlined_ast then
+                Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
+              
+              if !flag_simulation_inlined
+              then Ast2ocaml.pp_circuit Format.std_formatter c else
+
+              let c = Ast2kast.compile_circuit c in
+              
+              let c = Vsml_rename.rename_vsml_circuit c in
+
+              if !flag_show_kast then  
+                Pprint_kast.PP_VSML.pp_circuit Format.err_formatter c; 
+       
+              let c = Vsml_states_rename.rename_states_vsml_circuit c in
+              let c = if !flag_vsml2esml 
+                      then Vsml2esml.compile_vsml_circuit c 
+                      else let c = Vsml2psml.compile_vsml_circuit c in
+                           Psml2esml.compile_psml_circuit c
+              in
+              mk_vhdl ~labels:false c
+        ) circuits;
+        
+        let open Format in
+        if !flag_simulation_typed || !flag_simulation_inlined then (
           fprintf std_formatter "@,%s" main;
           fprintf std_formatter "@]@."
-        else List.iter 
-               (function c ->        
-                    (* initialize heap_access / heap_assign *)
-                    Esml2vhdl.allow_heap_access := false;
-                    Esml2vhdl.allow_heap_assign := false;
-                    
-                    if !flag_show_ast then
-                      Pprint_ast.PP_MACLE.pp_circuit Format.err_formatter c;
-
-                    let c = Typing.typing_circuit c in
-                    let c = Ast_rename.rename_ast c in
-
-                    if !flag_show_typed_ast then
-                      Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
-
-                    let c = Macro_expansion.expand_circuit c in
-                    let c = Inline.inline_circuit c in
-                    let c = if !flag_propagation 
-                            then Propagation.constant_copy_propagation c 
-                            else c 
-                    in
-                    
-                    if !flag_show_inlined_ast then
-                      Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
-         
-                    let c = Ast2kast.compile_circuit c in
-                    
-                    let c = Vsml_rename.rename_vsml_circuit c in
-
-                    if !flag_show_kast then  
-                      Pprint_kast.PP_VSML.pp_circuit Format.err_formatter c; 
-             
-                    let c = Vsml_states_rename.rename_states_vsml_circuit c in
-                    let c = if !flag_vsml2esml 
-                            then Vsml2esml.compile_vsml_circuit c 
-                            else let c = Vsml2psml.compile_vsml_circuit c in
-                                 Psml2esml.compile_psml_circuit c
-                    in
-                    mk_vhdl ~labels:false c
-        ) circuits;
-
-        let open Format in
+        ) else (    
         let dst = "gen" in
         let app_name  = Filename.(concat dst (concat "apps" (name ^".ml"))) in
         let fmt = std_formatter in
@@ -177,7 +186,7 @@ let parse filename =
         fprintf fmt "@]@]@.";
         pp_print_flush fmt ();
         close_out app_oc
-    );
+      ));
      close_in ic
   with e -> 
     close_in ic; raise e ;;
