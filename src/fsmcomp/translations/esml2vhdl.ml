@@ -234,6 +234,7 @@ let rec default_value fmt ty =
 
 
 let c_automaton ~reset ~clock (state_var:state) locals fmt (ts,e) =
+  let state_var = vhdl_ident state_var in
   fprintf fmt "@[<v 2>process(%s,%s) begin@," reset clock;
   fprintf fmt "@[<v 2>if %s = '1' then@," reset;
   c_exp [] state_var fmt e; 
@@ -300,8 +301,9 @@ let compile_esml_circuit ?(reset="reset") ?(clock="clk")
     List.map (fun _ -> Gensym.gensym "STATE") automata in
   
   List.iter2 (fun sv (ts,e)(* automaton *) ->
+    let sv = vhdl_ident sv in
     let qs = List.map fst ts in
-    fprintf fmt "@,type %s_T is (@[<hov>" sv;
+    fprintf fmt "@,type %s_T is (@[<hov>"  sv;
     pp_print_list ~pp_sep:(fun fmt () -> fprintf fmt ",@ ") c_state fmt qs;
     fprintf fmt ");@]@,";
     fprintf fmt "signal %s : %s_T;@," sv sv;

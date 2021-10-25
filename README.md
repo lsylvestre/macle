@@ -85,15 +85,15 @@ architecture RTL of fact is
   signal acc_0x5 : caml_int := to_signed(0,31);
   signal n_0x6 : caml_int := to_signed(0,31);
   
-  type STATE#8_T is (IDLE, AUX_0x7);
-  signal STATE#8 : STATE#8_T;
+  type STATE_0x8_T is (IDLE, AUX_0x7);
+  signal STATE_0x8 : STATE_0x8_T;
   
 begin
   process(reset,clk) begin
     if reset = '1' then
       state_0x8 <= IDLE;
     elsif rising_edge(clk) then
-      case STATE#8 is
+      case STATE_0x8 is
         when IDLE =>
           if start = '1' then
             rdy <= '0';
