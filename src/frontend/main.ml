@@ -129,7 +129,8 @@ let parse filename =
                       then Propagation.constant_copy_propagation c 
                       else c 
               in
-              
+              let c = Let_floating.circuit_let_floating c in
+
               if !flag_show_inlined_ast then
                 Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
               
@@ -155,7 +156,7 @@ let parse filename =
         let open Format in
         if !flag_simulation_typed || !flag_simulation_inlined then (
           fprintf std_formatter "@,%s" main;
-          fprintf std_formatter "@]@."
+          fprintf std_formatter ";;@]@."
         ) else (    
         let dst = "gen" in
         let app_name  = Filename.(concat dst (concat "apps" (name ^".ml"))) in

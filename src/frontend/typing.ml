@@ -6,6 +6,8 @@ exception Cannot_unify of ty * ty * loc
 exception Unbound_state of state
 exception Bad_arity_op of (Atom.op * int * int)
 
+let ty_of = TMACLE.ty_of
+
 let rec unify loc env t1 t2 =
   (* List.iter (fun (x,t) -> Format.(fprintf std_formatter "(%s:%a)," x print_ty t)) env;
   Format.(fprintf std_formatter "unify [ %a | %a ]\n" Types.print_ty t1 Types.print_ty t2); 
@@ -82,33 +84,36 @@ let typ_state q env =
   | Some t -> t
 
 let rec typ_exp (env : (ident * ty) list) (e,loc) =
-  (fun (ty,e) -> canon ty,e) @@
+  (fun (e,ty) -> e,canon ty) @@
   match e with
   | MACLE.Var x -> 
-      typ_var x env,TMACLE.Var x
+      TMACLE.Var x, typ_var x env
   | MACLE.Const c -> 
-      typ_const c,TMACLE.Const c
+      TMACLE.Const c, typ_const c
   | MACLE.If(e,e1,e2) -> 
-      let ty,e' = typ_exp env e in
-      unify loc env t_bool ty;
-      let ty1,e1' = typ_exp env e1 in
-      let ty2,e2' = typ_exp env e2 in
-      unify loc env ty1 ty2;
-      ty1,TMACLE.If(e',e1',e2',ty1)
+      let e' = typ_exp env e in
+      unify loc env t_bool (ty_of e');
+      let e1' = typ_exp env e1 in
+      let e2' = typ_exp env e2 in
+      let ty = ty_of e1' in
+      unify loc env ty (ty_of e2');
+      TMACLE.If(e',e1',e2'),ty 
   | MACLE.Case(e1,handlers,e2) -> 
-      let ty1,e1' = typ_exp env e1 in
-      let ty2,e2' = typ_exp env e2 in
+      let e1' = typ_exp env e1 in
+      let e2' = typ_exp env e2 in
+      let ty1 = ty_of e1' in
+      let ty2 = ty_of e2' in
       let hs = List.map (fun (c,e) -> 
-                       let ty',e' = typ_exp env e in
+                       let e' = typ_exp env e in
                        unify loc env ty1 (typ_const c);
-                       unify loc env ty2 ty';
+                       unify loc env ty2 (ty_of e');
                        (c,e')) handlers in
-      ty2,TMACLE.Case(e1',ty1,hs,e2',ty2)
+      TMACLE.Case(e1',hs,e2'),ty2
   | MACLE.Prim((Binop (Eq|Neq)) as p,[e1;e2]) -> 
-      let ty1,e1' = typ_exp env e1 in
-      let ty2,e2' = typ_exp env e2 in
-      unify loc env ty1 ty2;
-      t_bool,TMACLE.Prim(p,[e1';e2'])
+      let e1' = typ_exp env e1 in
+      let e2' = typ_exp env e2 in
+      unify loc env (ty_of e1') (ty_of e2');
+      TMACLE.Prim(p,[e1';e2']),t_bool
   (* | MACLE.Prim(TyAnnot ty,[e]) ->
       let ty',e' = typ_exp env e in
       unify loc env ty ty';
@@ -116,171 +121,172 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
   | MACLE.Prim(p,es) -> 
       (match typ_prim p with
       | TFun(tys,tr) ->
-          let tys',es' = Misc.split_map (typ_exp env) es in
+          let es' = List.map (typ_exp env) es in
+          let tys' = List.map snd es' in
           if List.compare_lengths tys tys' <> 0 then 
             raise (Bad_arity_op(p,List.length tys,List.length tys'));
           List.iter2 (unify loc env) tys tys';
-          tr,TMACLE.Prim(p,es')
+          TMACLE.Prim(p,es'),tr
        | _ -> assert false)
   | MACLE.CamlPrim(c) -> 
      (match c with
      | MACLE.RefAccess(e) ->
          let v = newvar() in
-         let ty,e' = typ_exp env e in
-         unify loc env ty (TCamlRef v);
-         v,TMACLE.CamlPrim(TMACLE.RefAccess (e',v))
+         let e' = typ_exp env e in
+         unify loc env (ty_of e') (TCamlRef v);
+         TMACLE.CamlPrim(TMACLE.RefAccess e'),v
      | MACLE.RefAssign{r;e} ->
-        let tyr,r' = typ_exp env r in
-        let tye,e' = typ_exp env e in
-        unify loc env tyr (TCamlRef tye);
-        t_unit,TMACLE.CamlPrim(TMACLE.RefAssign{r=r';e=e';ty=tye})
+        let r' = typ_exp env r in
+        let e' = typ_exp env e in
+        unify loc env (ty_of r') (TCamlRef (ty_of e'));
+        TMACLE.CamlPrim(TMACLE.RefAssign{r=r';e=e'}),t_unit
      | MACLE.ArrayAccess { arr ; idx } ->
-        let (t,arr') = typ_exp env arr in
-        let (tidx,idx') = typ_exp env idx in
+        let arr' = typ_exp env arr in
+        let idx' = typ_exp env idx in
         let v = newvar() in
-        unify loc env t (TCamlArray v);
-        unify loc env tidx t_int;
-        v,TMACLE.CamlPrim (TMACLE.ArrayAccess{arr=arr';idx=idx';ty=v})
+        unify loc env (ty_of arr') (TCamlArray v);
+        unify loc env (ty_of idx') t_int;
+        TMACLE.CamlPrim (TMACLE.ArrayAccess{arr=arr';idx=idx'}),v
      | MACLE.ArrayAssign { arr ; idx ; e} -> 
-        let (t,arr') = typ_exp env arr in
-        let (tidx,idx') = typ_exp env idx in
-        let (te,e') = typ_exp env e in
-        unify loc env t (TCamlArray te);
-        unify loc env tidx t_int;
-        t_unit,TMACLE.CamlPrim (TMACLE.ArrayAssign{arr=arr';idx=idx';e=e';ty=te})
+        let arr' = typ_exp env arr in
+        let idx' = typ_exp env idx in
+        let e' = typ_exp env e in
+        unify loc env (ty_of arr') (TCamlArray (ty_of e'));
+        unify loc env (ty_of idx') t_int;
+        TMACLE.CamlPrim (TMACLE.ArrayAssign{arr=arr';idx=idx';e=e'}),t_unit
      | MACLE.ArrayLength e -> 
-         let (te,e') = typ_exp env e in
+         let e'= typ_exp env e in
          let v = newvar() in
-         unify loc env te (TCamlArray v);
-         t_int,TMACLE.CamlPrim (TMACLE.ArrayLength (e',v))
-     | MACLE.ListHd(e) -> 
-         let (te,e') = typ_exp env e in
+         unify loc env (ty_of e') (TCamlArray v);
+         TMACLE.CamlPrim (TMACLE.ArrayLength e'),t_int
+     | MACLE.ListHd e -> 
+         let e' = typ_exp env e in
          let v = newvar() in
+         unify loc env (ty_of e') (TCamlList v);
+         TMACLE.CamlPrim (TMACLE.ListHd e'),v
+     | MACLE.ListTl e -> 
+         let e' = typ_exp env e in
+         let v = newvar() in
+         let te = ty_of e' in
          unify loc env te (TCamlList v);
-         v,TMACLE.CamlPrim (TMACLE.ListHd (e',v))
-     | MACLE.ListTl(e) -> 
-         let (te,e') = typ_exp env e in
-         let v = newvar() in
-         unify loc env te (TCamlList v);
-         te,TMACLE.CamlPrim (TMACLE.ListTl (e',v))
+         TMACLE.CamlPrim (TMACLE.ListTl e'),te
     | MACLE.ArrayMapBy(n,q,e) ->
          let v = newvar() in
-         let ty,e' = typ_exp env e in
-         unify loc env (TCamlArray v) ty;
+         let e' = typ_exp env e in
+         unify loc env (TCamlArray v) (ty_of e');
          let tf = typ_state q env in
          unify loc env tf (TFun([v],v));
          (* force la transformation à être de la forme 'a -> 'a,
             puisque le tableau est modifié en place *) 
-         t_unit,TMACLE.CamlPrim(TMACLE.ArrayMapBy(n,q,v,e'))
+         TMACLE.CamlPrim(TMACLE.ArrayMapBy(n,q,e')),t_unit
     | MACLE.ArrayFoldLeft(q,init,e) ->
        let v = newvar() in
-       let ty,e' = typ_exp env e in
-       unify loc env (TCamlArray v) ty;
-       let tyr,init' = typ_exp env init in
+       let e' = typ_exp env e in
+       unify loc env (TCamlArray v) (ty_of e');
+       let init' = typ_exp env init in
+       let tyr = ty_of init' in
        let tf = typ_state q env in
        unify loc env tf (TFun([tyr;v],tyr));
-       tyr,TMACLE.CamlPrim(TMACLE.ArrayFoldLeft(q,v,tyr,init',e'))
+       TMACLE.CamlPrim(TMACLE.ArrayFoldLeft(q,init',e')),tyr
     | MACLE.ListFoldLeft(q,init,e) ->
        let v = newvar() in
-       let ty,e' = typ_exp env e in
-       unify loc env (TCamlList v) ty;
-       let tyr,init' = typ_exp env init in
+       let e' = typ_exp env e in
+       unify loc env (TCamlList v) (ty_of e');
+       let init' = typ_exp env init in
+       let tyr = ty_of init' in
        let tf = typ_state q env in
        unify loc env tf (TFun([tyr;v],tyr));
-       tyr,TMACLE.CamlPrim(TMACLE.ListFoldLeft(q,v,tyr,init',e')))
+       TMACLE.CamlPrim(TMACLE.ListFoldLeft(q,init',e')),tyr)
   | MACLE.App(q,es) -> 
       let tf = typ_state q env in
       let tr = match tf with 
               | TFun(tys,tr) -> tr 
-              | _ -> newvar() 
-      in
-      let tys',es' = Misc.split_map (typ_exp env) es in
+              | _ -> newvar() in
+      let es' = List.map (typ_exp env) es in
+      let tys' = List.map snd es' in
       let tf' = TFun(tys',tr) in
       unify loc env tf' tf;
-      tr,TMACLE.App(q,es',tr)
+      TMACLE.App(q,es'),tr
   | MACLE.LetFun(((q,xs),e1),e2) ->
     let tys = List.map (fun x -> newvar ()) xs in
     let bs = List.combine xs tys in
-    let ty,e1' =
+    let e1' =
       let env1 = bs @ env in
       typ_exp env1 e1 
     in
-    let ty2,e2' = 
+    let ty = ty_of e1' in
+    let e2' = 
        let env2 = (q,TFun(tys,ty))::env in
        typ_exp env2 e2 in
-    ty2,TMACLE.LetFun(((q,bs),e1'),e2')
+    TMACLE.LetFun(((q,bs),e1'),e2'),ty_of e2'
   | MACLE.LetRec(ts,e) ->
       let env_ext = List.map (fun ((q,xs),_) -> q,List.map (fun _ -> newvar ()) xs,newvar ()) ts in
       let env' = List.map (fun (q,tys,ty) -> q,TFun (tys,ty)) env_ext@env in
       let ts' = List.map2 (fun ((q,xs),e) (q,tys,tr) -> 
                              let env'' = List.combine xs tys @ env' in  
-                             let t,e' = typ_exp env'' e in
-                             unify loc env'' tr t;
+                             let e' = typ_exp env'' e in
+                             unify loc env'' tr (ty_of e');
                              ((q,List.combine xs tys),e')) ts env_ext in
-      let ty,e' = typ_exp env' e in
-      ty,TMACLE.LetRec(ts',e',ty)
+      let e' = typ_exp env' e in
+      TMACLE.LetRec(ts',e'),ty_of e'
   | MACLE.Let(bs,e) ->
       let bs' = List.map (fun (x,e) -> 
-                           let ty,e' = typ_exp env e in 
-                           ((x,ty),e')) bs in
-      let ty,e' = typ_exp (List.map fst bs'@env) e in
-      ty,TMACLE.Let(bs',e',ty)
-
-let rec canon_exp e = 
+                           let e' = typ_exp env e in 
+                           ((x,ty_of e'),e')) bs in
+      let e' = typ_exp (List.map fst bs'@env) e in
+      TMACLE.Let(bs',e'),ty_of e'
+ 
+let rec canon_exp (desc,ty) = 
   let open TMACLE in
-  match e with
-    Var _ | Const _ -> e
+  (fun desc' -> desc',canon ty) @@
+  match desc with
+    Var _ | Const _ -> desc
   | LetFun(((x,xs),e1),e2) ->
       let xs' = List.map (fun (x,ty) -> x, canon ty) xs in
       LetFun(((x,xs'),canon_exp e1),canon_exp e2) 
-  | LetRec(ts,e,ty) ->
+  | LetRec(ts,e) ->
       let ts' = List.map (fun ((q,xs),e) -> 
           (q,List.map (fun (x,ty) -> (x,canon ty)) xs),canon_exp e) ts in
-        LetRec(ts',canon_exp e,canon ty)
-  | If(e1,e2,e3,ty) -> 
-      If(canon_exp e1,canon_exp e2,canon_exp e3,canon ty)
-  | Case(e1,ty,hs,e2,ty2) -> 
+        LetRec(ts',canon_exp e)
+  | If(e1,e2,e3) -> 
+      If(canon_exp e1,canon_exp e2,canon_exp e3)
+  | Case(e1,hs,e2) -> 
       Case(canon_exp e1,
-           canon ty,
            List.map (fun (c,e) -> c, canon_exp e) hs,
-           canon_exp e2,
-           canon ty2)
+           canon_exp e2)
   | Prim (p,es) -> 
       Prim (p,List.map canon_exp es)
-  | App(q,es,ty) -> 
-      App(q,List.map canon_exp es,canon ty)
-  | Let(bs,e,ty) -> 
+  | App(q,es) -> 
+      App(q,List.map canon_exp es)
+  | Let(bs,e) -> 
       Let(List.map (fun ((x,ty),e) -> (x,canon ty), canon_exp e) bs, 
-          canon_exp e,
-          canon ty)
+          canon_exp e)
   | CamlPrim(c) ->
       let c' = 
           match c with
-          | RefAccess(e,t) -> 
-              RefAccess(canon_exp e,canon t)
-          | RefAssign{r;e;ty} ->
-              RefAssign{r=canon_exp r;e=canon_exp e;ty=canon ty}
-          | ArrayAccess{arr;idx;ty} ->
+          | RefAccess e -> 
+              RefAccess(canon_exp e)
+          | RefAssign{r;e} ->
+              RefAssign{r=canon_exp r;e=canon_exp e}
+          | ArrayAccess{arr;idx} ->
               ArrayAccess{arr=canon_exp arr;
-                                idx=canon_exp idx;
-                                ty=canon ty} 
-          | ArrayAssign{arr;idx;e;ty} ->
+                                idx=canon_exp idx} 
+          | ArrayAssign{arr;idx;e} ->
               ArrayAssign{arr=canon_exp arr;
                                 idx=canon_exp idx;
-                                e=canon_exp e;
-                                ty=canon ty} 
-          | ArrayLength (e,ty) ->
-              ArrayLength (canon_exp e,canon ty)
-          | ListHd (e,ty) ->
-              ListHd (canon_exp e,canon ty)
-          | ListTl (e,ty) ->
-              ListTl (canon_exp e,canon ty)
-          | ArrayMapBy(n,q,ty,e) ->
-              ArrayMapBy(n,q,canon ty, canon_exp e)
-          | ArrayFoldLeft(q,ty,tyr,e1,e2) ->
-              ArrayFoldLeft(q,canon ty,canon tyr,canon_exp e1,canon_exp e2)
-          | ListFoldLeft(q,ty,tyr,e1,e2) ->
-              ListFoldLeft(q,canon ty,canon tyr,canon_exp e1,canon_exp e2)
+                                e=canon_exp e} 
+          | ArrayLength e ->
+              ArrayLength (canon_exp e)
+          | ListHd e ->
+              ListHd (canon_exp e)
+          | ListTl e ->
+              ListTl (canon_exp e)
+          | ArrayMapBy(n,q,e) ->
+              ArrayMapBy(n,q, canon_exp e)
+          | ArrayFoldLeft(q,e1,e2) ->
+              ArrayFoldLeft(q,canon_exp e1,canon_exp e2)
+          | ListFoldLeft(q,e1,e2) ->
+              ListFoldLeft(q,canon_exp e1,canon_exp e2)
        in 
        CamlPrim c'
 
@@ -288,9 +294,9 @@ let rec canon_exp e =
 let typing_circuit MACLE.{x;xs;e;loc} =
   try 
     let xs = List.map (fun x -> (x,newvar ())) xs in
-    let ty,e' = typ_exp xs e in
+    let e' = typ_exp xs e in
     let xs = List.map (fun (x,t) -> (x,canon t)) xs in
-    TMACLE.{x;xs;s=[];ty;e=canon_exp e'}
+    TMACLE.{x;xs;s=[];ty=ty_of e';e=canon_exp e'}
   with
   | Unbound_state q -> 
       error x loc @@

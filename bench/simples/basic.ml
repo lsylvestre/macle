@@ -24,11 +24,11 @@ circuit array_get(a,i) =
   let rec wait(n) = 
     if n <= 0 then a.(i)
   else wait(n-1) in 
-  wait(1000);;
-
+  wait(1000)
+(*
 circuit array_set(a,i,v) = 
   a.(i) <-v
-
+*)
 ;;;;
 
 let print_array a = 
@@ -46,8 +46,11 @@ print_string "----\n";;
 
 let a = [|10;11;12;13;14|];;
 
-print_int (array_get(a,2));;
+array_get;;
+
+print_int (array_get a 2);;
+
 print_string "----\n";;
-array_set(a,2,42);;
+array_set a 2 42;;
 
 print_array a ;;

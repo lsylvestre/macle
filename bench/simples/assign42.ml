@@ -12,9 +12,9 @@ circuit array_assign_i(a) =
 
 ;;;;
 
-let pp n = print_int n; print_string " " 
+let pp n = print_int n; print_string " " ;;
 
-let r = ref 17
+let r = ref 17 ;;
 
 pp (!r);;
 
@@ -22,12 +22,12 @@ assign (r);;
 
 pp (!r);;
 
-let a = [|10;11;12;13;14]
+let a = [|10;11;12;13;14|];;
 
-array_assign_i(a);;
+array_assign_i a;;
 
 Array.iter pp a;;
 
-array_assign(a,4);;
+array_assign a 4;;
 
 Array.iter pp a;;
