@@ -12,6 +12,7 @@ all:
 	for c in c/*platform.h;            do (cat $${c} >> ../$(DST)/c/platform.h); done
 	for c in c/*simul.c;               do (cat $${c} >> ../$(DST)/c/simul.c); done
 	for c in c/*simul.h;               do (cat $${c} >> ../$(DST)/c/simul.h); done
+	cat ml/prelude.ml >> ../$(DST)/ml/platform.ml
 	for c in ml/*platform.ml;          do (cat $${c} >> ../$(DST)/ml/platform.ml); done
 	for c in ml/*platform.mli;         do (cat $${c} >> ../$(DST)/ml/platform.mli); done
 	for f in apps; do (cp -R $${f} "../$(DST)/$${f}"); done

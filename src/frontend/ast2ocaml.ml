@@ -2,8 +2,6 @@ open Format
 open Kast
 open Ast
 
-module PP_atom = Pprint_kast.PP_atom
-
 open TMACLE
 open Types
 
@@ -23,15 +21,14 @@ let rec print_ty fmt ty =
         pp_print_text fmt "int"
     | TUnit -> 
         pp_print_text fmt "unit")
-  | TCamlRef ty ->
-      fprintf fmt "(%a) ref"
-         print_ty ty
-  | TCamlArray ty ->
-      fprintf fmt "(%a) array"
-         print_ty ty
-  | TCamlList ty ->
-      fprintf fmt "(%a) list"
-         print_ty ty
+    | TConstr (x,[]) -> 
+       pp_print_text fmt x
+    | TConstr (x,tys) ->
+       fprintf fmt "(";
+       pp_print_list 
+        ~pp_sep:(fun fmt () -> fprintf fmt ", ") 
+           print_ty fmt tys;
+       fprintf fmt ") %s" x;
   | TPtr ->
       pp_print_text fmt "ptr"
   | TVar{contents=V n} -> 
@@ -49,11 +46,11 @@ let rec pp_exp fmt (e,ty) =
   | Var x -> 
       pp_ident fmt x
   | Const c -> 
-      PP_atom.pp_const fmt c
+      Pprint_atom.pp_const fmt c
   | Prim (Binop p,[e1;e2]) ->
     fprintf fmt "(%a %a %a)"
       pp_exp e1
-      PP_atom.pp_binop p
+      Pprint_atom.pp_binop p
       pp_exp e2
 | Prim (Unop Mod2,[e]) ->
     fprintf fmt "(%a mod 2)"
@@ -63,7 +60,7 @@ let rec pp_exp fmt (e,ty) =
       pp_exp e
 | Prim (Unop p,[e]) ->
         fprintf fmt "(%a %a)"
-          PP_atom.pp_unop p
+          Pprint_atom.pp_unop p
           pp_exp e
 | Prim _ -> 
     assert false
@@ -74,9 +71,9 @@ let rec pp_exp fmt (e,ty) =
       pp_exp e3
 | Case (e1,hs,e2) ->
     let pp_handle fmt (c,e) = 
-      fprintf fmt "%a -> %a" PP_atom.pp_const c pp_exp e 
+      fprintf fmt "%a -> %a" Pprint_atom.pp_const c pp_exp e 
     in
-    fprintf fmt "(case (%a : %a) with" pp_exp e1 print_ty (ty_of e1);
+    fprintf fmt "(case (%a : %a) with@," pp_exp e1 print_ty (ty_of e1);
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_handle fmt hs;
     fprintf fmt "_ -> %a)" pp_exp e2;
@@ -107,6 +104,24 @@ let rec pp_exp fmt (e,ty) =
     pp_exp fmt e;
     fprintf fmt " : %a" print_ty (ty_of e);
     fprintf fmt "))@]"
+| Match(e,cases) -> 
+    let pp_case fmt (c,xs,e) = 
+      let pp_pat fmt = function
+      | None,ty -> fprintf fmt "(_ : %a)" print_ty ty 
+      | Some x,ty -> fprintf fmt "(%a : %a)" pp_ident x print_ty ty in
+      let pp_pats fmt = function
+      | [] -> ()
+      | xs ->  
+        pp_print_text fmt "(";
+        pp_print_list 
+         ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_pat fmt xs;
+        pp_print_text fmt ")" in
+      fprintf fmt "%s%a -> %a" c pp_pats xs pp_exp e;    
+    in
+    fprintf fmt "(@[<v>match (%a : %a) with@," pp_exp e print_ty (ty_of e);
+    pp_print_list 
+      ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_case fmt cases;
+    fprintf fmt "_ -> assert false)@]";
 | CamlPrim e -> 
 (match e with
 | RefAccess e -> 

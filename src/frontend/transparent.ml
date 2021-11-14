@@ -24,9 +24,12 @@ let transparent e =
         aux env' e
     | App(x,es) -> 
         List.mem x env && List.for_all (aux env) es
+    | Match(e,cases) ->
+        aux env e &&
+        List.for_all (fun (_,_,e) -> aux env e) cases
     | CamlPrim c -> 
         (match c with 
-         | ArrayAccess{arr;idx} ->
+         | ArrayAccess { arr ; idx } ->
              aux env arr || aux env idx
          | (RefAccess e | ArrayLength e | ListHd e | ListTl e) -> 
              aux env e

@@ -5,7 +5,10 @@ type token =
   | ZERO
   | WITH
   | WILDCARD
+  | UP_IDENT of (string)
+  | UNIT
   | UMINUS
+  | TYPE
   | TIMES
   | THEN
   | SEMI_SEMI
@@ -20,6 +23,7 @@ type token =
   | PIPE
   | OTHERWISE
   | ONE
+  | OF
   | NOT
   | NEQ
   | MOD
@@ -36,6 +40,7 @@ type token =
   | LBRACKET
   | LAND
   | INT_LIT of (int)
+  | INT
   | IN
   | IF
   | IDENT of (string)
@@ -52,6 +57,7 @@ type token =
   | CIRCUIT
   | CASE
   | BOOL_LIT of (bool)
+  | BOOL
   | BANG
   | ARRAY_MAP
   | ARRAY_LENGTH

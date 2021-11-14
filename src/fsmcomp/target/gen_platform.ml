@@ -16,8 +16,54 @@ let mk_package name fmt =
   fprintf fmt "subtype caml_ptr is std_logic_vector(31 downto 0);@,";
   fprintf fmt "subtype caml_int is signed(30 downto 0);@,";
 
+  fprintf fmt "function bool_to_std_logic(X : boolean) return std_logic;@,";
+
+  fprintf fmt "@[<v 2>function compute_address(@[<v>heap_base : caml_value;@,";
+  fprintf fmt "address : caml_value;@,";
+  fprintf fmt "offset : caml_int) return caml_value;@]@]@,";
+
+  fprintf fmt "function size_header(x : caml_value) return caml_int;@,";
+  
+  fprintf fmt "function tag_header(x : caml_value) return caml_int;@,";
+
+  fprintf fmt "function is_imm(x : caml_value) return boolean;@,";
+
   fprintf fmt "@]@,end;@,";
-  fprintf fmt "package body misc_%s is@," name;
+  fprintf fmt "@[<v 2>package body misc_%s is@," name;
+
+  fprintf fmt "@[<v 2>function bool_to_std_logic(X : boolean) return std_logic is@,";
+  fprintf fmt "@[<v 2>begin@,";
+  fprintf fmt "@[<v 2>if X then@,";
+  fprintf fmt "return '1';@]@,";
+  fprintf fmt "@[<v 2>else@,";
+  fprintf fmt "return '0';@]@,";
+  fprintf fmt "end if;@]@,";
+  fprintf fmt "end;@]@,";
+
+  fprintf fmt "@[<v 2>function compute_address(@[<v>heap_base : caml_value;@,";
+  fprintf fmt "address : caml_value;@,";
+  fprintf fmt "offset : caml_int) return caml_value is@]@,";
+  fprintf fmt "@[<v 2>begin@,";
+  fprintf fmt "return @[<v 2>std_logic_vector(@,@[<v>unsigned(heap_base) +@,";
+  fprintf fmt "unsigned(address(19 downto 0)) +@,";
+  fprintf fmt "unsigned(offset(19 downto 0) & \"00\")@]@,);@]@]@,";
+  fprintf fmt "end;@]@,";
+ 
+  fprintf fmt "@[<v 2>function size_header(x : caml_value) return caml_int is@,";
+  fprintf fmt "@[<v 2>begin@,";
+  fprintf fmt "return signed(\"00000000000\" & x(21 downto 2));@]@,";
+  fprintf fmt "end;@]@]@,";
+
+  fprintf fmt "@[<v 2>function tag_header(x : caml_value) return caml_int is@,";
+  fprintf fmt "@[<v 2>begin@,";
+  fprintf fmt "return signed(\"00000000000000000000000\" & x(31 downto 24));@]@,";
+  fprintf fmt "end;@]@]@,";
+
+  fprintf fmt "function is_imm(x : caml_value) return boolean is@,";
+  fprintf fmt "@[<v 2>begin@,";
+  fprintf fmt "return (x(0) = '1');@]@,";
+  fprintf fmt "end;@]@]@,";
+
   fprintf fmt "end;@,@."
 
   (* ***************************************** *)
@@ -361,10 +407,15 @@ let rec t_ML fmt ty =
   let open Ktypes in
   match ty with
   | TConst TStd_logic
-  | TConst TBool -> fprintf fmt "bool"
-  | TConst TInt -> fprintf fmt "int"
-  | TConst TUnit -> fprintf fmt "unit"
-  | TPtr (x,tys) -> 
+  | TConst TBool -> 
+      pp_print_text fmt "bool"
+  | TConst TInt -> 
+      pp_print_text fmt "int"
+  | TConst TUnit -> 
+      pp_print_text fmt "unit"
+  | TPtr (x,[]) ->
+      pp_print_text fmt x
+  | TPtr (x,tys) ->
       fprintf fmt "(%a) %s"
       (fun fmt -> pp_print_list 
         ~pp_sep:(fun fmt () -> fprintf fmt ",") 
@@ -382,6 +433,7 @@ let rec t_ML fmt ty =
 let mk_platform_ml ?(labels=true) fmt (envi,envo,_) name = 
   let envi = List.filter (fun (x,_) -> x <> "start") envi in
   let tres = List.assoc "result" envo in
+
   fprintf fmt "@[<hov>external %s : " (low name);
   List.iter (fun (x,t) ->
                 if labels then (fprintf fmt "%s:" (low x));
@@ -420,6 +472,7 @@ let mk_vhdl_with_cc ?labels ?xs_opt circuit =
   and platform_h_name   = dst ^^ c_dir   ^^  (name ^ "_platform.h")
   and simul_c_name      = dst ^^ c_dir   ^^  (name ^ "_simul.c")
   and simul_h_name      = dst ^^ c_dir   ^^  (name ^ "_simul.h")
+  and prelude_name      = dst ^^ ml_dir  ^^  "prelude.ml"
   and platform_ml_name  = dst ^^ ml_dir  ^^  (name ^ "_platform.ml")
   and platform_mli_name = dst ^^ ml_dir  ^^  (name ^ "_platform.mli")
   and hw_tcl_name       = dst ^^ qsys_dir ^^  (name ^ "_cc_hw.tcl")
@@ -434,6 +487,7 @@ let mk_vhdl_with_cc ?labels ?xs_opt circuit =
   and platform_h_oc = open_out platform_h_name
   and simul_c_oc = open_out simul_c_name
   and simul_h_oc = open_out simul_h_name 
+  and prelude_oc = open_out prelude_name
   and platform_ml_oc = open_out platform_ml_name
   and platform_mli_oc = open_out platform_mli_name
   and hw_tcl_oc = open_out hw_tcl_name
@@ -470,6 +524,10 @@ let mk_vhdl_with_cc ?labels ?xs_opt circuit =
                | Some xs -> List.map (fun x -> (x,List.assoc x envi)) xs in 
     (envi,envo,l)
   in
+  
+  set_formatter_out_channel prelude_oc;
+  Ast.pprint_code_typ_constr_decl fmt;
+  pp_print_flush fmt ();
 
   set_formatter_out_channel cc_oc;
   gen_cc fmt vars vars' name;
@@ -518,6 +576,7 @@ let mk_vhdl_with_cc ?labels ?xs_opt circuit =
   close_out platform_h_oc;
   close_out simul_c_oc;
   close_out simul_h_oc;
+  close_out prelude_oc;
   close_out platform_ml_oc;
   close_out platform_mli_oc;
   close_out hw_tcl_oc;

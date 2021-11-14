@@ -3,7 +3,8 @@ open Ast
 open Types
 open TMACLE
     
-let translate_tconst = function
+let translate_tconst (tc:tconst) : Ktypes.tconst =
+  match tc with
   | TInt ->
       Ktypes.TInt
   | TBool ->
@@ -13,7 +14,7 @@ let translate_tconst = function
   | TUnit ->
       Ktypes.TUnit
 
-let rec translate_type t =
+let rec translate_type (t:ty) : Ktypes.ty =
   match t with
   | TConst c -> 
       Ktypes.TConst (translate_tconst c)
@@ -32,70 +33,101 @@ let rec translate_type t =
   | TFun _ -> 
       assert false (* functional value must be eliminated before *)
 
-  let rec is_atom (desc,_) = match desc with
-  | Var _ | Const _ -> true
-  | Prim (_,args) ->
-      List.for_all is_atom args  
-  | _ -> false
+  let rec is_atom (desc,_ : exp) : bool = 
+    match desc with
+    | (Var _ | Const _) -> 
+        true
+    | Prim (_,args) ->
+        List.for_all is_atom args  
+    | _ -> 
+        false
 
 (* [exp_to_atom e] raise [Assert_failure] if [e] is not an atom *)
-let rec exp_to_atom (desc,_) = match desc with
-| Var x -> 
-    Atom.Var x
-| Const n -> 
-    Atom.Const n
-| Prim (c,args) -> 
-    Prim(c,List.map exp_to_atom args) 
-| _ -> 
-    assert false (* not an atom *)
+let rec exp_to_atom (desc,_ : exp) : Atom.atom = 
+  match desc with
+  | Var x -> 
+      Atom.Var x
+  | Const n -> 
+      Atom.Const n
+  | Prim (c,args) -> 
+      Prim(c,List.map exp_to_atom args) 
+  | _ -> 
+      assert false (* not an atom *)
 
-
-let new_local_signal : (ident * Types.ty) list ref = ref []
-
-let access ?(callbk=fun x -> x) ts tv p args = 
-  assert (List.compare_lengths ts args = 0);
-  let xs = List.map (fun t -> Gensym.gensym "tmp",translate_type t) ts in
+(* produit un code d'accès mémoire à une valeur [v] de type [tv]
+   à l'adresse [address+field] retournant [k v]. *)
+let access ?(k=fun a -> VSML.Atom a) tv ~address ~field = 
   Esml2vhdl.allow_heap_access := true;
-  let get = Gensym.gensym "get" in
-  let read = Gensym.gensym "read" in
-  let v = Gensym.gensym "tmp_access" in
-  new_local_signal := (v,tv) :: !new_local_signal;
+  let q = Gensym.gensym "wait_read" in
   let open VSML in
-  ([((get,xs),
-     DoThen([("avm_rm_address",
-            Prim(p, (List.map (fun (x,_) -> Atom.Var x) xs)));
-           ("avm_rm_read", Const (Std_logic One))],
-          State(read,[])));
-    ((read,[]),
-     If (Prim(Binop Eq,[Var "avm_rm_waitrequest";Const (Std_logic Zero)]),
-         DoThen ([("avm_rm_read",Const (Std_logic Zero));
-                (v,Prim(FromCaml (translate_type tv),[Var "avm_rm_readdata"]))],
-               (Atom (callbk (Atom.Var v)))),
-         State(read,[])))],
-   State(get,args))
+  let open Atom in
+  let t = ((q,[]), (* [address] must not be free in [t] *)
+           if_ (eq_ (var_ "avm_rm_waitrequest") std_zero)
+               (do_ [("avm_rm_read",std_zero)] 
+                  (k @@ Prim(FromCaml (translate_type tv),[var_ "avm_rm_readdata"])))
+               (state_ q [])) in
+  let e = do_ [("avm_rm_address", compute_adress_ (var_ "caml_heap_base") (var_ address) field);
+               ("avm_rm_read", std_one)]
+            (state_ q []) in
+  ([t],e)
 
-let assign tt ts p args new_exp = 
-  (* Efsm2vhdl.allow_heap_access := true; *)
+(* produit un code d'accès mémoire à une valeur [v] de type [tv]
+  au champ [field] du bloc [e] retournant [k v]. *)
+let access_atomic_field ?k e ~field ~tv ~ty =
+  let x = Gensym.gensym "x" in
+  let ts,e' = access ?k ty ~address:x ~field in
+  let e1 = VSML.let_ [((x,translate_type tv),e)] e' in
+  ts, e1
+
+let access_computed_field ?k e ~field:e_field ~tv ~ty =
+  match e_field with
+  | ([],VSML.Atom field) -> 
+      access_atomic_field ?k e ~field ~tv ~ty
+  | _ ->
+    let x = Gensym.gensym "x" in
+    let idx = Gensym.gensym "idx" in
+    let ts,e' = access ?k ty ~address:x ~field:(Var idx) in
+    let e1 = VSML.let_ [((x,translate_type tv),e);
+                        ((idx,TConst TInt),e_field)] e' in
+    ts, e1
+
+let assign tv ~address ~field a = 
   Esml2vhdl.allow_heap_assign := true;
-  let eval = Gensym.gensym "eval" in
-  let write = Gensym.gensym "write" in
-  let x = Gensym.gensym "tmp" in 
-  let xs = List.map (fun _ -> Gensym.gensym "tmp") args in 
-  let ktt = translate_type tt in
+  let q = Gensym.gensym "wait_write" in
   let open VSML in
-  ([((eval,(x,ktt)::(List.map2 (fun x t -> (x,translate_type t)) xs ts)),
-     DoThen([("avm_wm_writedata",
-            Prim(ToCaml ktt,[Var x]));
-           ("avm_wm_address",
-            Prim(p,List.map (fun x -> Atom.Var x) xs));
-           ("avm_wm_write", 
-            Const (Std_logic One))],State(write,[])));
-    ((write,[]),
-     If (Prim(Binop Eq,[Var "avm_wm_waitrequest";Const (Std_logic Zero)]),
-         DoThen([("avm_wm_write",Const (Std_logic Zero))],
-              Atom(Const Unit)),
-         State(write,[])))],
-   State(eval,new_exp::args))
+  let open Atom in
+  let t = ((q,[]), (* variable [address] free in [t] *)
+           if_ (eq_ (var_ "avm_wm_waitrequest") std_zero)
+               (do_ [("avm_wm_write",Atom.std_zero)] 
+                    (Atom (Const Unit)))
+               (state_ q [])) in
+  let e = do_ [("avm_wm_address", Prim(ComputeAddress,[Var "caml_heap_base"; Var address ; field]));
+               ("avm_wm_writedata", Prim(ToCaml (translate_type tv),[a]));
+               ("avm_wm_write",Atom.std_one)]
+            (state_ q []) in
+  ([t],e)
+
+let assign_atomic_field e_addr e ~field ~tv =
+  let addr = Gensym.gensym "addr" in
+  let x = Gensym.gensym "x" in
+  let ts,e' = assign tv ~address:addr ~field (Atom.Var x) in
+  let e1 = VSML.let_ [((addr,translate_type TPtr),e_addr); 
+                      ((x,translate_type tv),e)] @@ e' in
+  ts,e1
+
+let assign_computed_field e_addr e ~field:e_field ~tv =
+  match e_field with
+  | ([],VSML.Atom field) -> 
+      assign_atomic_field e_addr e ~field ~tv
+  | _ ->
+    let addr = Gensym.gensym "addr" in
+    let x = Gensym.gensym "x" in
+    let idx = Gensym.gensym "idx" in
+    let ts,e' = assign tv ~address:addr ~field:(Var idx) (Atom.Var x) in
+    let e1 = VSML.let_ [((addr,translate_type TPtr),e_addr);
+                        ((idx,TConst TInt),e_field); 
+                        ((x,translate_type tv),e)] @@ e' in
+    ts,e1
 
 (* translate expressions *)
 let rec translate_exp env e = 
@@ -150,7 +182,7 @@ let rec translate_exp env e =
                         au niveau VSML.
 
                         Optimisation : si [ts] est vide, on peut aplatir.
-                        *) 
+                        *)
                      | [],e' -> e'
                      | _ -> 
                         let res = Gensym.gensym "res" in
@@ -169,7 +201,7 @@ let rec translate_exp env e =
            ts2@ts3,VSML.If(exp_to_atom e1,e2',e3')
       else 
         translate_exp env @@
-        let x = Gensym.gensym "dsl_cond" in
+        let x = Gensym.gensym "cond" in
         Let([((x,TConst TBool),e1)], (If((Var x,TConst TBool),e2,e3),ty)),ty
   | Case(e1,hs,e2) ->  (* TODO *)
       let ty = ty_of e1 in
@@ -183,7 +215,7 @@ let rec translate_exp env e =
                      e2')
       else 
         translate_exp env @@
-        let x = Gensym.gensym "dsl_cond" in
+        let x = Gensym.gensym "cond" in
         (Let([((x,ty),e1)], (Case((Var x,ty),hs,e2),ty2)),ty2)
   | App(x,es) -> 
       if List.for_all is_atom es then
@@ -198,69 +230,39 @@ let rec translate_exp env e =
   | CamlPrim e ->
     (match e with
     | RefAccess e ->
-        let ty_elem = ref_ty (ty_of e) in 
-        let x = Gensym.gensym "x" in
-        let ts,e' = 
-          access [TPtr] ty_elem (CamlField 0) [Atom.Var x] in
-        ts,VSML.LetIn([((x,translate_type ty), translate_exp env e)], e')
-    | ArrayAccess{arr;idx} ->
-        let ty_elem = array_ty (ty_of arr) in
-        let x = Gensym.gensym "x" in
-        let i = Gensym.gensym "idx" in
-        let res = Gensym.gensym "res" in
-        let fsm = 
-          access [TPtr;TConst TInt] ty_elem
-            CamlComputedField [Atom.Var x;Atom.Var i]
-        in
-        [],VSML.LetIn([(x,translate_type ty),
-                         translate_exp env arr; 
-                       (i,TConst TInt),translate_exp env idx],
-           VSML.LetIn([(res,translate_type ty_elem),fsm],Atom (Atom.Var res)))  
-    | ArrayLength e ->
-        let ty = array_ty (ty_of e) in
-        let x = Gensym.gensym "x" in
-        let res = Gensym.gensym "res" in
-        let fsm = access ~callbk:(fun x -> Prim(Size_hd,[x])) 
-                       [TPtr] ty CamlHeader [Atom.Var x] in
-        [],VSML.LetIn([((x,translate_type (TCamlArray ty)),
-                          translate_exp env e)],
-           VSML.LetIn([(res,TConst TInt),fsm],Atom (Atom.Var res)))  
+        access_atomic_field (translate_exp env e) 
+          ~field:(Atom.mk_int 0) ~tv:(ty_of e) ~ty
     | ListHd e -> 
-        let ty = list_ty (ty_of e) in
-        let x = Gensym.gensym "x" in
-        let ts,e' = access [TPtr] ty (CamlField 0) [Atom.Var x] in
-        ts,VSML.LetIn([((x,translate_type (TCamlList ty)),
-                          translate_exp env e)],
-                      e')
+        access_atomic_field (translate_exp env e) 
+          ~field:(Atom.mk_int 0) ~tv:(ty_of e) ~ty
     | ListTl e -> 
-        let ty = list_ty (ty_of e) in
-        let x = Gensym.gensym "x" in
-        let ts,e' = access [TPtr] (TCamlList ty) (CamlField 1) [Atom.Var x] in
-        ts,VSML.LetIn([((x,translate_type (TCamlList ty)),
-                          translate_exp env e)],
-                       e')
-     | RefAssign {r;e} ->
-        let ty_elem = ref_ty (ty_of r) in
-        let x = Gensym.gensym "x" in
-        let y = Gensym.gensym "y" in
-        let ts,e' = assign ty_elem [TPtr] (CamlField 0) [Atom.Var x] (Atom.Var y) in
-        ts,VSML.LetIn([(x,translate_type ty),translate_exp env r;
-                       (y,translate_type ty_elem),translate_exp env e], 
-                      e')
+        access_atomic_field (translate_exp env e) 
+          ~field:(Atom.mk_int 1) ~tv:(ty_of e) ~ty
+    | ArrayLength e ->
+        access_atomic_field ~k:(fun e -> Atom (Prim(SizeHeader,[e]))) 
+          (translate_exp env e) 
+          ~field:(Atom.mk_int (-1)) ~tv:TPtr ~ty:TPtr
+    
+    | ArrayAccess{arr;idx} ->
+               access_computed_field (translate_exp env arr) 
+          ~field:(translate_exp env idx) ~tv:(ty_of arr) ~ty
+       (* let x = Gensym.gensym "x" in
+        let i = Gensym.gensym "idx" in
+        let ty = array_ty @@ ty_of arr in
+        let ts,e' = access ty ~address:x ~field:(Atom.var_ i) in
+        ts,VSML.LetIn([(x,translate_type (ty_of arr)), translate_exp env arr; 
+                       (i,TConst TInt), translate_exp env idx], 
+                       e') *)
+    | RefAssign {r;e} ->
+        assign_atomic_field (translate_exp env r) (translate_exp env e) 
+           ~field:(Atom.mk_int 0) ~tv:(ref_ty @@ ty_of r)
     | ArrayAssign{arr;idx;e} ->
-        let ty_elem = array_ty (ty_of arr) in
-        let x = Gensym.gensym "x" in
-        let y = Gensym.gensym "y" in
-        let z = Gensym.gensym "z" in
-        let ts,e' = assign ty_elem [TPtr;TConst TInt] CamlComputedField [Atom.Var x;Atom.Var y] (Atom.Var z) in
-        ts,VSML.LetIn([(x,translate_type ty),translate_exp env arr;
-                       (y,TConst TInt),translate_exp env idx;
-                       (z,translate_type ty_elem),translate_exp env e], 
-                      e')
-      | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
-        assert false (* already expanded *)  
-      )
-        
+        assign_computed_field (translate_exp env arr) (translate_exp env e) 
+           ~field:(translate_exp env idx) ~tv:(array_ty @@ ty_of arr)
+    | ( ArrayMapBy _ | ArrayFoldLeft _ | ListFoldLeft _) -> 
+        assert false (* already expanded *)
+  )
+
 let compile_circuit {x;xs;s;ty=t;e} =
   let fsm = translate_exp [] e in
   let extra = [] in
@@ -280,8 +282,6 @@ let compile_circuit {x;xs;s;ty=t;e} =
       (Out,"avm_wm_write",Ktypes.TConst TStd_logic)::
       (In,"avm_wm_waitrequest",Ktypes.TConst TStd_logic)::extra
     else extra in
-  let s' = List.map (fun (x,t) -> (In,x,translate_type t)) xs@s@
-           List.map (fun (x,t) -> (Local,x,translate_type t))
-             !new_local_signal @ extra
+  let s' = List.map (fun (x,t) -> (In,x,translate_type t)) xs @ s @ extra
   in
   VSML.{x;s=s';ty=translate_type t;body=fsm}

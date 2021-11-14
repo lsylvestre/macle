@@ -37,11 +37,14 @@ let propagation (e:exp) =
        | None -> App(x,es')
        | Some (Var q) -> App(q,List.map (aux env) es)
        | _ -> assert false)
+  | Match(e,cases) ->
+      let cases' = List.map (fun (c,xs,e) -> c,xs,aux env e) cases in
+      Match(aux env e,cases')
   | CamlPrim c ->
       CamlPrim 
       (match c with 
-       | ArrayAccess{arr;idx} ->
-           ArrayAccess{arr=aux env arr;idx=aux env idx}
+       | ArrayAccess { arr ; idx } ->
+           ArrayAccess { arr = aux env arr ; idx = aux env idx }
        | RefAccess e ->
            RefAccess (aux env e)
        | ArrayLength e ->
@@ -51,9 +54,9 @@ let propagation (e:exp) =
        | ListTl e -> 
            ListTl (aux env e)
        | RefAssign{r;e} ->
-            RefAssign{r=aux env r;e= aux env e}
-       | ArrayAssign{arr;idx;e} ->
-           ArrayAssign{arr= aux env arr;idx= aux env idx;e= aux env e}
+            RefAssign { r = aux env r ; e = aux env e }
+       | ArrayAssign { arr ; idx ; e } ->
+           ArrayAssign { arr = aux env arr ; idx = aux env idx ; e = aux env e }
        | ListFoldLeft(q,init,e) ->
            ListFoldLeft(q,aux env init,aux env e) 
        | ArrayFoldLeft(q,init,e) ->

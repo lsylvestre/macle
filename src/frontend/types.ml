@@ -1,16 +1,26 @@
 
 open Format
 
+type name = string
+
 type ty = 
 | TConst of tconst
-| TCamlRef of ty
-| TCamlArray of ty
-| TCamlList of ty
+| TConstr of name * ty list
 | TPtr               (* pointeur *)
 | TVar of tvar ref
 | TFun of ty list * ty
 and tconst = TStd_logic | TBool | TInt | TUnit
 and tvar = V of int | Ty of ty
+
+
+
+let list_,ref_,array_ = 
+  let list_name = "list" 
+  and ref_name = "ref"
+  and array_name = "array" in
+  (fun v -> TConstr(list_name,[v])),
+  (fun v -> TConstr(ref_name,[v])),
+  (fun v -> TConstr(array_name,[v]))
 
 module Tenv = Hashtbl;;
 
@@ -27,15 +37,14 @@ let rec print_ty fmt ty =
         pp_print_text fmt "int"
     | TUnit -> 
         pp_print_text fmt "unit")
-  | TCamlRef ty ->
-      fprintf fmt "(%a) ref"
-         print_ty ty
-  | TCamlArray ty ->
-      fprintf fmt "(%a) array"
-         print_ty ty
-  | TCamlList ty ->
-      fprintf fmt "(%a) list"
-         print_ty ty
+  | TConstr (x,[]) -> 
+      pp_print_text fmt x
+  | TConstr (x,tys) ->
+      fprintf fmt "(";
+      pp_print_list 
+      ~pp_sep:(fun fmt () -> fprintf fmt ", ") 
+         print_ty fmt tys;
+      fprintf fmt ") %s" x;
   | TPtr ->
       pp_print_text fmt "ptr"
   | TVar{contents=V n} -> 
@@ -76,9 +85,7 @@ let rec canon t =
       let t2 = canon t' in 
       v := Ty t2; t2
   | TVar{contents=V _} -> t
-  | TCamlRef t -> TCamlRef (canon t)
-  | TCamlArray t -> TCamlArray (canon t)
-  | TCamlList t -> TCamlList (canon t)
+  | TConstr (x,tys) -> TConstr (x,List.map canon tys)
   | TFun(ts,t) -> TFun (List.map canon ts, canon t)
   | (TConst _ | TPtr) -> t
 
@@ -87,6 +94,6 @@ let rec occur n t =
   match t with
   | TVar {contents=V m} -> n = m
   | TVar {contents=Ty _} -> false
-  | (TCamlRef t | TCamlArray t | TCamlList t) -> occur n t
+  | TConstr (_,tys) -> List.exists (occur n) tys
   | TFun(ts,t) -> List.for_all (occur n) ts && occur n t
   | (TConst _ | TPtr) -> false

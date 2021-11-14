@@ -1,6 +1,5 @@
-circuit inc(r) = 
-  r := !r + 1
-
+circuit inc(x) =
+ x := !x + 1
 ;;;;
 
 let r = ref 42;;

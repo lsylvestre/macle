@@ -19,39 +19,31 @@ OBJS=src/misc/misc.cmo\
      \
      src/fsmcomp/kernel/ktypes.cmo\
      src/fsmcomp/kernel/atom.cmo\
-     src/fsmcomp/kernel/kast.cmo\
-     src/fsmcomp/kernel/pprint_kast.cmo\
+     \
+     src/frontend/types.cmo\
+     src/frontend/ast.cmo\
      \
      src/fsmcomp/translations/esml2vhdl.cmo\
-     src/fsmcomp/translations/psml2esml.cmo\
-     src/fsmcomp/translations/vsml2psml.cmo\
-     src/fsmcomp/translations/vsml2esml.cmo\
      \
      src/fsmcomp/target/gen_hw_tcl.cmo\
      src/fsmcomp/target/gen_platform.cmo\
      \
-     src/fsmcomp/renaming/psml_rename.cmo\
-     src/fsmcomp/renaming/vsml_rename.cmo\
-     src/fsmcomp/renaming/vsml_states_rename.cmo\
      \
-     \
-     src/frontend/types.cmo\
-     src/frontend/ast.cmo\
+     src/fsmcomp/kernel/kast.cmo\
+     src/fsmcomp/kernel/pprint_atom.cmo\
      src/frontend/pprint_ast.cmo\
      src/frontend/ast2ocaml.cmo\
      \
      src/frontend/typing.cmo\
      src/frontend/ast_rename.cmo\
-     src/frontend/ast2kast.cmo\
+     src/fsmcomp/translations/ast2kernel.cmo\
+     src/fsmcomp/translations/ast2esml.cmo\
      src/frontend/occur.cmo\
      src/frontend/transparent.cmo\
      src/frontend/inline.cmo\
      src/frontend/macro_expansion.cmo\
      src/frontend/propagation.cmo\
      src/frontend/let_floating.cmo\
-     \
-     src/fsmcomp/debug/parser_vsml.cmo\
-     src/fsmcomp/debug/lexer_vsml.cmo\
      \
      src/frontend/parser.cmo\
      src/frontend/lexer.cmo\
@@ -60,7 +52,7 @@ OBJS=src/misc/misc.cmo\
     # src/fsmcomp/debug/main_debug.cmo\
 
 SRCS=`find src -name "*.ml*"`
-all: prepare src/fsmcomp/debug/parser_vsml.cmi src/frontend/parser.cmi $(OBJS)
+all: prepare src/frontend/parser.cmi $(OBJS)
 	$(CAMLC) $(FLAGS) $(INCLUDES) -o $(EXE) $(OBJS)
 
 .SUFFIXES: .mll .mly .ml .mli .cmo .cmi 

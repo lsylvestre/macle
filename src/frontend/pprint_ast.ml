@@ -2,12 +2,10 @@ open Format
 open Kast
 open Ast
 
-module PP_atom = Pprint_kast.PP_atom
-  
 let pp_state = pp_print_text
 
 module PP_MACLE = struct
-  open PP_atom
+  open Pprint_atom
   open MACLE
 
   let rec pp_exp fmt (e,_) = 
@@ -19,11 +17,11 @@ module PP_MACLE = struct
     | Prim (Binop p,[e1;e2]) ->
       fprintf fmt "(%a %a @[<v>%a@])"
         pp_exp e1
-        PP_atom.pp_binop p
+        pp_binop p
         pp_exp e2
   | Prim (Unop p,[e]) ->
           fprintf fmt "(%a %a)"
-            PP_atom.pp_unop p
+            pp_unop p
             pp_exp e
   | Prim _ -> 
       assert false
@@ -49,7 +47,7 @@ module PP_MACLE = struct
     fprintf fmt "@[<v>let ";
     pp_print_list 
         ~pp_sep:(fun fmt () -> fprintf fmt "@, and ") 
-         (fun fmt (x,e) -> 
+         (fun fmt ((x,_),e) -> 
              fprintf fmt "@[<v 2>%s =@,%a@]" x pp_exp e) fmt bs;
      fprintf fmt "@ in@,%a@]" pp_exp e
   | LetFun(t,e) ->
@@ -65,6 +63,24 @@ module PP_MACLE = struct
        pp_transition fmt ts;
     fprintf fmt " in ";
     pp_exp fmt e;
+    fprintf fmt ")@]"
+  | Match(e,cases) -> 
+    let pp_case fmt (c,xs,e) = 
+      let pp_pat fmt = function
+      | None,_ -> fprintf fmt "_"
+      | Some x,_ -> fprintf fmt "%a" pp_ident x in
+      let pp_pats fmt = function
+      | [] -> ()
+      | xs ->  
+        pp_print_text fmt "(";
+        pp_print_list 
+         ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_pat fmt xs;
+        pp_print_text fmt ")" in
+      fprintf fmt "%s%a -> %a" c pp_pats xs pp_exp e;    
+    in
+    fprintf fmt "(@[<v>match %a with" pp_exp e;
+    pp_print_list 
+      ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_case fmt cases;
     fprintf fmt ")@]"
   | CamlPrim e -> 
   (match e with
@@ -109,14 +125,14 @@ module PP_MACLE = struct
   and pp_transition fmt ((q,xs),e) = 
     fprintf fmt "%s(" q; 
     pp_print_list 
-      ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_print_text fmt xs;
+      ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_print_text fmt (List.map fst xs);
     fprintf fmt ") = @,";
     pp_exp fmt e
 
   let pp_circuit fmt {x;xs;e} =
     fprintf fmt "@[<v>@[<v 2>circuit %s(" x;
     pp_print_list 
-      ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_print_text fmt xs;
+      ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_print_text fmt (List.map fst xs);
     fprintf fmt ") =@,";
     pp_exp fmt e;
     fprintf fmt "@] ;;@,@,@]"
@@ -124,7 +140,7 @@ end
 
 
 module PP_TMACLE = struct
-  open PP_atom
+  open Pprint_atom
   open TMACLE
   open Types
 
@@ -137,11 +153,11 @@ module PP_TMACLE = struct
     | Prim (Binop p,[e1;e2]) ->
       fprintf fmt "(%a %a @[<v>%a@])"
         pp_exp e1
-        PP_atom.pp_binop p
+        pp_binop p
         pp_exp e2
   | Prim (Unop p,[e]) ->
           fprintf fmt "(%a %a)"
-            PP_atom.pp_unop p
+            pp_unop p
             pp_exp e
   | Prim _ -> 
       assert false
@@ -185,6 +201,24 @@ module PP_TMACLE = struct
       pp_exp fmt e;
       fprintf fmt " : %a" print_ty (ty_of e);
       fprintf fmt "))@]"
+  | Match(e,cases) -> 
+    let pp_case fmt (c,xs,e) = 
+      let pp_pat fmt = function
+      | None,ty -> fprintf fmt "(_ : %a)" print_ty ty 
+      | Some x,ty -> fprintf fmt "(%a : %a)" pp_ident x print_ty ty in
+      let pp_pats fmt = function
+      | [] -> ()
+      | xs ->  
+        pp_print_text fmt "(";
+        pp_print_list 
+         ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_pat fmt xs;
+        pp_print_text fmt ")" in
+      fprintf fmt "%s%a -> %a" c pp_pats xs pp_exp e;    
+    in
+    fprintf fmt "(@[<v>match (%a : %a) with" pp_exp e print_ty (ty_of e);
+    pp_print_list 
+      ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_case fmt cases;
+    fprintf fmt ")@]"
   | CamlPrim e -> 
   (match e with
   | RefAccess e -> 

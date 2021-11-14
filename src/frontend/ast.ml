@@ -3,22 +3,24 @@ open Gensym
 
 type ident = string
 type state = string
+type constr = ident 
 
 open Types
 
 open Atom
 
-module TMACLE = struct
+module Make(D : sig type decoration end) = struct
+
+  type decoration = D.decoration
 
   type circuit = {
     x:ident;
-    xs:(ident * ty) list;
-    s:Kast.signature;
-    ty:ty;
-    e:exp 
+    xs:(ident * decoration) list;
+    decoration:decoration;
+    e:exp
   } 
 
-  and exp = exp_desc * ty
+  and exp = exp_desc * decoration
   and exp_desc =
   | Var of ident
   | Const of const
@@ -26,11 +28,14 @@ module TMACLE = struct
   | If of (exp * exp * exp)
   | Case of (exp * (const * exp) list * exp)  
   | App of (ident * exp list)
-  | LetRec of ((ident * (ident * ty) list) * exp) list * exp
-  | LetFun of ((ident * (ident * ty) list) * exp) * exp
-  | Let of ((ident * ty) * exp) list * exp
+  | LetRec of ((ident * (ident * decoration) list) * exp) list * exp
+  | LetFun of ((ident * (ident * decoration) list) * exp) * exp
+  | Let of ((ident * decoration) * exp) list * exp
+  | Match of exp * case list
   | CamlPrim of interop
   
+  and case = constr * (ident option * decoration) list * exp
+
   and interop =
   | RefAccess of exp
   | RefAssign of  { r:exp ; e:exp }
@@ -43,6 +48,12 @@ module TMACLE = struct
   | ArrayFoldLeft of ident * exp * exp
   | ListFoldLeft of ident * exp * exp
 
+end
+
+
+module TMACLE = struct
+  include Make(struct type decoration = ty end)
+
   let t_unit = TConst TUnit
   let t_int = TConst TInt
   let t_bool = TConst TBool
@@ -51,17 +62,19 @@ module TMACLE = struct
     e,ty
 
   let ty_of (_,ty) = ty 
+
+  let desc_of (d,_) = d 
   
   let array_ty = function
-  | (TCamlArray t) -> t
+  | TConstr("array",[t]) -> t
   | _ -> assert false
 
   let ref_ty = function
-  | (TCamlRef t) -> t
+  | TConstr("ref",[t]) -> t
   | _ -> assert false
 
   let list_ty = function
-  | (TCamlList t) -> t
+  | TConstr("list",[t]) -> t
   | _ -> assert false
 
   let mk_let bs e = 
@@ -79,10 +92,10 @@ module TMACLE = struct
     let x = Gensym.gensym "ignore" in
     mk_let1 (x,t_unit) e1 e2
 
-  let rec mk_seqs es e =
+  let rec mk_seqs es e=
      match es with
      | [] -> e
-     | e::es' -> mk_seq e (mk_seqs es' e)
+     | e'::es' -> mk_seq e' (mk_seqs es' e)
 
   let mk_letrec bs e =
     LetRec(bs,e),ty_of e
@@ -113,7 +126,7 @@ module TMACLE = struct
   
   let mk_array_access arr idx =
     match arr with
-    | _,(TCamlArray ty) -> 
+    | _,TConstr("array",[ty]) -> 
       CamlPrim (ArrayAccess {arr;idx}),ty
     | _ -> assert false
     
@@ -122,19 +135,63 @@ module TMACLE = struct
 
   let mk_list_hd e =
     match e with
-    | _,(TCamlList ty) -> CamlPrim(ListHd e),ty
+    | _,TConstr("list",[ty]) ->
+        CamlPrim(ListHd e),ty
     | _ -> assert false
 
   let mk_list_tl e =
     match e with
-    | _,((TCamlList ty) as t) -> CamlPrim(ListTl e),t
+    | _,(TConstr("list",[ty]) as t) ->
+      CamlPrim(ListTl e),t
     | _ -> assert false
-
 end
 
+module MACLE = Make(struct type decoration = loc end)
 
-module MACLE = struct
-  
+let list_typ_constr_decl : (ident * (ident * ty list) list) list ref = ref []
+
+let add_code_typ_constr_decl x cs = 
+    list_typ_constr_decl := !list_typ_constr_decl @ [x,cs]
+
+let pprint_code_typ_constr_decl fmt = 
+  let open Format in
+  let pp fmt (x,cs) =
+    let pp_constructor fmt = function
+    | (c,[]) -> fprintf fmt "%s" c
+    | (c,tys) ->
+       fprintf fmt "%s of " c;
+       pp_print_list 
+        ~pp_sep:(fun fmt () -> fprintf fmt " * ") print_ty fmt tys
+    in
+    fprintf fmt "type %s = " x;
+    pp_print_list 
+        ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_constructor fmt cs;
+in 
+  fprintf fmt "@[<v>";
+  List.iter (pp fmt) !list_typ_constr_decl;
+  fprintf fmt "@,@,@]"
+  (* code_typ_constr_decl := !code_typ_constr_decl ^ "type " ^ x " = " ^ 
+  String.concat "|" @@ List.map (function (c,[]) -> c | (c,tys) -> c^" of "^ 
+    String.concat " * " @@ List.map print_ty  *)
+
+
+let env_constructor : (string * (string * int * ty list)) list ref =
+ ref (["[]",("list",0,[])])
+
+let add_constructor x ty n tys = 
+  env_constructor := (x,(ty,n,tys))::!env_constructor
+
+let typ_of_constructor x = 
+  let ty,_,tys = List.assoc x !env_constructor in (ty,tys)
+
+let val_of_constructor x = 
+  let _,n,tys = List.assoc x !env_constructor in
+  (n,tys)
+
+
+
+(* struct
+
   type circuit = {
     x:ident; 
     xs:ident list; 
@@ -142,7 +199,7 @@ module MACLE = struct
     loc:loc
   }
 
-  and exp = exp_desc located 
+  and exp = exp_desc located
   
   and exp_desc =
   | Var of ident
@@ -153,9 +210,12 @@ module MACLE = struct
   | App of (ident * exp list)
   | LetRec of ((ident * ident list) * exp) list * exp
   | LetFun of ((ident * ident list) * exp) * exp
-  | Let of (ident * exp) list * exp 
+  | Let of (ident * exp) list * exp
+  | Match of exp * case list
   | CamlPrim of interop
   
+  and case = constr * ident list * exp
+
   and interop =
   | RefAccess of exp
   | RefAssign of  { r:exp ; e:exp }
@@ -169,7 +229,7 @@ module MACLE = struct
   | ListFoldLeft of ident * exp * exp
 
 end
-
+*)
 (** [mk_match loc e e1 x xs e2] builds the expression
     (match e with [] -> e1 | x::xs -> e2) expended :
 
@@ -179,16 +239,16 @@ end
           and xs = list_tl #y in
           e2)
 *)
-let mk_match loc e e1 x xs e2 =
+(* let mk_match loc e e1 x xs e2 =
   let open MACLE in
   let mkl = mk_loc loc in
   let y = Gensym.gensym "y" in
   let var_y = mkl @@ Var y in
-  mkl @@ Let([(y,e)],
+  mkl @@ Let([((y,loc),e)],
              mkl @@ If(mkl @@ Prim(Binop Eq,
                                    [ var_y;
                                      mkl @@ Const EmptyList ]),
                        e1,
                        mkl @@ Let([(x,mkl @@ CamlPrim (ListHd var_y));
                                    (xs,mkl @@ CamlPrim (ListTl var_y))],
-                                   e2)))
+                                   e2))) *)

@@ -46,11 +46,20 @@ let substitution env (e:exp) =
        | None -> App(x,es')
        | Some Var q -> App(q,List.map aux es)
        | _ -> assert false)
+  | Match(e,cases) ->
+      let e' = aux e in
+      let cases' = 
+        List.map (fun (c,xs,e) -> 
+           assert (List.for_all (function 
+                    | Some x,_ -> not (List.mem_assoc x env) 
+                    | None,_ -> true) xs);
+          (c,xs,aux e)) cases in 
+      Match(e',cases')
   | CamlPrim c ->
       CamlPrim 
       (match c with 
        | ArrayAccess{arr;idx} ->
-           ArrayAccess{arr=aux arr;idx=aux idx}
+           ArrayAccess{ arr = aux arr ; idx = aux idx }
        | RefAccess e ->
            RefAccess (aux e)
        | ArrayLength e ->
@@ -60,9 +69,9 @@ let substitution env (e:exp) =
        | ListTl e -> 
            ListTl (aux e)
        | RefAssign{r;e} ->
-            RefAssign{r=aux r;e= aux e}
+            RefAssign{ r = aux r ; e = aux e }
        | ArrayAssign{arr;idx;e} ->
-           ArrayAssign{arr= aux arr;idx= aux idx;e= aux e}
+           ArrayAssign{ arr = aux arr ; idx = aux idx ; e = aux e }
        | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
            assert false (* already expanded *) )
 in aux e
@@ -144,29 +153,34 @@ let rec inline rec_env env (desc,ty) =
         let bs',e0 = specialize_list xs es' e in
         let e' = inline rec_env env e0 in
         mk_let bs' e'
+  | Match(e,cases) ->
+      let e' = inline rec_env env e in
+      let cases' = List.map (fun (c,xs,e) -> (c,xs,inline rec_env env e)) cases in 
+      Match(e',cases'),ty
+
   | CamlPrim r -> 
-    (match r with
-    | RefAccess e -> 
-        CamlPrim(RefAccess(inline rec_env env e))
-    | RefAssign{r;e} -> 
-        CamlPrim(RefAssign{r=inline rec_env env r;
-                           e=inline rec_env env e})
-    | ArrayAccess{arr;idx} ->
-        CamlPrim(ArrayAccess{arr=inline rec_env env arr;
-                             idx=inline rec_env env idx})
-    | ArrayAssign{arr;idx;e} ->
-        CamlPrim(ArrayAssign{arr=inline rec_env env arr;
-                             idx=inline rec_env env idx;
-                             e=inline rec_env env e})
-    | ArrayLength e -> 
-        CamlPrim(ArrayLength(inline rec_env env e))
-    | ListHd e -> 
-        CamlPrim(ListHd(inline rec_env env e))
-    | ListTl e -> 
-        CamlPrim(ListTl(inline rec_env env e))
-    | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
-        assert false (* already expanded *) 
-    ),ty
+    let c = 
+      match r with
+      | RefAccess e -> 
+          RefAccess(inline rec_env env e)
+      | RefAssign{r;e} -> 
+          RefAssign{ r = inline rec_env env r ; e = inline rec_env env e }
+      | ArrayAccess{arr;idx} ->
+          ArrayAccess{ arr = inline rec_env env arr ;
+                       idx = inline rec_env env idx }
+      | ArrayAssign{arr;idx;e} ->
+          ArrayAssign{ arr = inline rec_env env arr ;
+                       idx = inline rec_env env idx ;
+                       e = inline rec_env env e}
+      | ArrayLength e -> 
+          ArrayLength(inline rec_env env e)
+      | ListHd e -> 
+          ListHd(inline rec_env env e)
+      | ListTl e -> 
+          ListTl(inline rec_env env e)
+      | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
+          assert false (* already expanded *) 
+    in (CamlPrim c),ty
 
 
 let inline_circuit (c : TMACLE.circuit) : TMACLE.circuit = 

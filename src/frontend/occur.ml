@@ -27,15 +27,23 @@ let rec occur x (desc,_) =
       (List.exists (fun ((_,_),e) -> occur x e) bs || occur x e)
   | App(x',es) -> 
       x' = x || List.exists (occur x) es
+  | Match(e,cases) ->
+      occur x e || List.exists (fun (_,_,e) -> occur x e) cases
+      (** ne traite pas les captures **)
+      (* List.exists (fun (c,xs,e) -> 
+                      not (List.exists (function
+                           | (Some y,_) -> x = y
+                           | _ -> false) xs) 
+                    || occur x e) cases*)
   | CamlPrim c -> 
       (match c with 
        | ArrayAccess{arr;idx} ->
            occur x arr || occur x idx
        | (RefAccess e | ArrayLength e | ListHd e | ListTl e) -> 
            occur x e
-       | RefAssign{r;e} ->
+       | RefAssign { r ; e } ->
            occur x r || occur x e
-       | ArrayAssign{arr;idx;e} ->
+       | ArrayAssign { arr ; idx ; e } ->
            occur x arr || occur x idx || occur x e
        | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
            assert false (* already expanded *) )

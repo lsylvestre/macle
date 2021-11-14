@@ -51,15 +51,12 @@ let a = mk_array ();;
 map1 (a);;
 print_array a;;
 
-let a = mk_array ();;
 map2 (a);;
 print_array a;;
 
-let a = mk_array ();;
 map4 (a);;
 print_array a;;
 
-let a = mk_array ();;
 map16 (a);;
 print_array a;;
 

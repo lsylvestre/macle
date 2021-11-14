@@ -22,6 +22,8 @@ let rec print_ty fmt ty =
         pp_print_text fmt "int"
     | TUnit -> 
         pp_print_text fmt "unit")
+  | TPtr (c,[]) ->
+     pp_print_text fmt c
   | TPtr (c,tys) ->
      pp_print_text fmt "(";
      pp_print_list 
@@ -29,3 +31,6 @@ let rec print_ty fmt ty =
      fprintf fmt ") %s" c;
   | TVar n -> 
       fprintf fmt "'a%d" n
+
+let t_std_logic = 
+  TConst TStd_logic

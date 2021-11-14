@@ -110,20 +110,29 @@ let rec expand ((desc,ty) as e) =
       mk_letrec (List.map (fun (d,e) -> (d,expand e)) bs) (expand e)
   | App(x,es) ->
       mk_app ~ty x (List.map expand es)
+  | Match(e,cases) -> 
+      let cases' = List.map (fun (c,xs,e) -> c,xs,expand e) cases in
+      Match(expand e,cases'),ty
   | CamlPrim r -> 
     (match r with
     | RefAccess e -> 
         CamlPrim(RefAccess(expand e)),ty
     | RefAssign{r;e} -> 
-        CamlPrim(RefAssign{r=expand r;
-                           e=expand e}),ty
+        CamlPrim(RefAssign{
+                  r = expand r ;
+                  e = expand e
+                }),ty
     | ArrayAccess{arr;idx} ->
-        CamlPrim(ArrayAccess{arr=expand arr;
-                             idx=expand idx}),ty
+        CamlPrim(ArrayAccess{ 
+                  arr = expand arr ;
+                  idx = expand idx 
+                }),ty
     | ArrayAssign{arr;idx;e} ->
-        CamlPrim(ArrayAssign{arr=expand arr;
-                             idx=expand idx;
-                             e=expand e}),ty
+        CamlPrim(ArrayAssign{ 
+                  arr = expand arr ;
+                  idx = expand idx ;
+                  e = expand e
+                }),ty
     | ArrayLength e -> 
         CamlPrim(ArrayLength(expand e)),ty
     | ListHd e -> 

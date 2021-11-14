@@ -4,7 +4,8 @@
 
 }
 
-let ident = ['a'-'z''A'-'Z'] ['a'-'z''A'-'Z''0'-'9''_''A'-'Z'''']*
+let ident = ['a'-'z'] ['a'-'z''A'-'Z''0'-'9''_''A'-'Z'''']*
+let up_ident = ['A'-'Z']['a'-'z''A'-'Z''0'-'9''_''A'-'Z'''']*
 
 rule token = parse
 | '('               { LPAREN }
@@ -57,7 +58,13 @@ rule token = parse
 | "list_fold_left"  { LIST_FOLD_LEFT }
 | "array_fold_left" { ARRAY_FOLD_LEFT }
 | "array_map_by"    { ARRAY_MAP }
+| "type"            { TYPE }
+| "of"              { OF }
+| "int"             { INT }
+| "bool"            { BOOL }
+| "unit"            { UNIT }
 | ident as lxm      { IDENT lxm }
+| up_ident as lxm   { UP_IDENT lxm }
 | ['_']             { WILDCARD }
 | ['\n' ]           { (Lexing.new_line lexbuf) ; (token lexbuf) }
 | [' ' '\t']        { token lexbuf }

@@ -5,8 +5,10 @@ open Format
 
 let allow_heap_access = ref false
 let allow_heap_assign = ref false
+let allow_heap_alloc = ref false
 
 let caml_heap_base = "caml_heap_base"
+let avm_rm_readdata = "avm_rm_readdata"
 
 let c_binop fmt p = 
   let open Atom in
@@ -46,8 +48,10 @@ let vhdl_ident x =
   |> List.map (function "" -> "CHAR_ASCII95" | s -> s)
   |> concat "_"
 
-let c_state fmt q = 
+let c_cstr fmt q = 
   pp_print_text fmt (vhdl_ident @@ String.uppercase_ascii q)
+
+let c_state = c_cstr
 
 let c_ident fmt q = 
   pp_print_text fmt (vhdl_ident @@ String.lowercase_ascii q)
@@ -83,15 +87,25 @@ let c_const fmt c =
   | Std_logic v -> 
      pp_std_logic fmt v
   | Bool b -> 
-    fprintf fmt "%b" b
+      fprintf fmt "%b" b
   | Int n -> 
-    fprintf fmt "to_signed(%d,31)" n
+      fprintf fmt "to_signed(%d,31)" n
   | Unit -> 
-    pp_print_text fmt "UNIT_VALUE"
+      pp_print_text fmt "UNIT_VALUE"
+  | Cstr c ->    
+      (* (match c with
+      | "[]" -> pp_print_text fmt "X\"00000001\""
+      | "::" -> pp_print_text fmt "to_signed(0,31)"
+      | "," -> pp_print_text fmt "to_signed(0,31)"
+      | _ -> *)
+      let (n,tys) = Ast.val_of_constructor c in
+      if tys = [] 
+      then fprintf fmt "std_logic_vector(to_signed(%d,31)) & \"1\"" n
+      else fprintf fmt "to_signed(%d,31)" n
+
   | EmptyList -> 
-    pp_print_text 
-      fmt 
-      "X\"00000001\"" (* constant 0 as immediate OCaml value *)
+      pp_print_text fmt 
+        "X\"00000001\"" (* constant 0 as immediate OCaml value *)
 
 let c_atom env fmt a = 
   let open Atom in
@@ -105,7 +119,7 @@ let c_atom env fmt a =
         | None -> c_ident fmt x)
     | Const c -> 
         c_const fmt c
-    | Prim p -> 
+    | Prim p ->
      (match p with
       | (Binop p,[a1;a2]) ->
         parenthesized ~paren fmt @@ fun () ->
@@ -129,33 +143,27 @@ let c_atom env fmt a =
           fprintf fmt "%a %a"
             c_unop p
             (pp_atom ~paren:true) a
-     | (CamlHeader,[addr]) -> 
-          fprintf fmt "@[<hov>std_logic_vector(unsigned(%s) +@,unsigned(%a(19 downto 0)) - 4)@]"
-              caml_heap_base
-              (pp_atom ~paren:true) addr
-     | (CamlField i,[addr]) -> 
-          fprintf fmt "@[<hov>std_logic_vector(unsigned(%s) +@,unsigned(%a(19 downto 0)) + (%d))@]"
-              caml_heap_base
-              (pp_atom ~paren:true) addr
-              (i*4)
-     | (CamlComputedField,[addr;ofs]) -> 
-          fprintf fmt "@[<hov>std_logic_vector(unsigned(%s) +@,unsigned(%a(19 downto 0)) +@,RESIZE(unsigned(%a(19 downto 0)) * 4,32))@]" (* au lieu de "* 4", utiliser [& "00"] *)
-              caml_heap_base
-              (pp_atom ~paren:true) addr       (* !!! que faire si addr n'est pas une variable *)
-              (pp_atom ~paren:true) ofs
-     | Size_hd,[header] ->
-         fprintf fmt "signed(\"00000000000\"&%a(21 downto 2))" (* "std_logic_vector(%a)(21 downto 2)) ...??" *)
-                 (pp_atom ~paren:true) header
-     | (TyAnnot _,[a]) -> 
-         pp_atom ~paren fmt a 
+     | (SizeHeader,[a]) ->
+        fprintf fmt "size_header(%a)" (pp_atom ~paren:true) a
+     | (TagHd,[a]) ->
+        fprintf fmt "tag_header(%a)" (pp_atom ~paren:true) a
+     | (IsImm,[a]) ->
+        fprintf fmt "is_imm(%a)" (pp_atom ~paren:true) a
      | (FromCaml t,[a]) -> 
-          if is_ptr t 
-          then pp_atom ~paren fmt a 
-          else fprintf fmt "signed(%a(31 downto 1))" (pp_atom ~paren:true) a
-     | (ToCaml t,[a]) -> 
-          if is_ptr t 
-          then pp_atom ~paren fmt a 
-          else fprintf fmt "std_logic_vector(%a)& \"1\"" (pp_atom ~paren:true) a
+         (match t with
+         | TConst TBool -> fprintf fmt "(%a(1) = '1')" (pp_atom ~paren:true) a
+         | TConst TInt -> fprintf fmt "signed(%a(31 downto 1))" (pp_atom ~paren:true) a
+         | _ -> pp_atom ~paren fmt a)
+     | (ToCaml t,[a]) ->
+         (match t with (* à vérifier *)
+         | TConst TBool -> fprintf fmt "BOOLEAN_TO_STD_LOGIC(%a)& \"1\"" (pp_atom ~paren:true) a  (* todo *)
+         | TConst TInt -> fprintf fmt "std_logic_vector(%a)& \"1\"" (pp_atom ~paren:true) a
+         | _ -> pp_atom ~paren fmt a)
+     | (ComputeAddress,[h;addr;ofs]) ->
+         fprintf fmt "compute_address(%a, %a, %a)" 
+           (pp_atom ~paren:false) h
+           (pp_atom ~paren:false) addr
+           (pp_atom ~paren:false) ofs
      | _ -> assert false) (* ill-formed primitive application *)
   in
   pp_atom ~paren:false fmt a
@@ -169,9 +177,9 @@ let rec c_exp env d fmt e =
   | Atom a -> 
       assign env fmt d (c_atom env) a
   | DoThen(bs,e) ->
-      (* the Quartus® II software supports multiple assignments 
-         to the same signal even though the last one assigned takes 
-         precedence.
+      (* "the Quartus II software supports multiple assignments 
+          to the same signal even though the last one assigned takes 
+          precedence."
 
           https://www.intel.com/content/www/us/en/support/programmable/articles/000085525.html
       *)

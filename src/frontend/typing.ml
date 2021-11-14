@@ -17,10 +17,10 @@ let rec unify loc env t1 t2 =
   match t1,t2 with
   | TConst c1, TConst c2 when c1 = c2 -> ()
   | TPtr,TPtr -> ()
-  | TCamlRef t, TCamlRef t'
-  | TCamlArray t, TCamlArray t' 
-  | TCamlList t, TCamlList t' -> 
-      unify loc env t t'
+  | TConstr (x,tys), TConstr (x',tys') -> 
+      if x <> x' || List.compare_lengths tys tys' <> 0 then 
+        raise (Cannot_unify(t1,t2,loc));
+      List.iter2 (unify loc env) tys tys'
   | TVar {contents=(V n)},
     TVar ({contents=V m} as v) ->
       if n = m then () else v := Ty t1
@@ -55,9 +55,10 @@ let typ_const c =
   | Bool _ -> TConst TBool 
   | Int _ -> TConst TInt
   | Unit -> TConst TUnit
+  | Cstr _ -> failwith "todo"
   | EmptyList -> 
      let v = newvar() in 
-     TCamlList v
+     list_ v
 
 let t_int = TConst TInt
 let t_bool = TConst TBool
@@ -82,6 +83,21 @@ let typ_state q env =
   match List.assoc_opt q env with
   | None -> raise (Unbound_state q)
   | Some t -> t
+
+let typ_constr = function
+  | "::" -> 
+      let v = newvar () in
+      let ty = list_ v in
+      ty,[v;ty]
+  | "[]" -> 
+      let v = newvar () in
+      list_ v,[]
+  | "," -> 
+      let v = newvar () in
+      let w = newvar () in
+      TConstr("pair",[v;w]),[v;w]
+  | x -> let tx,tys = typ_of_constructor x in
+         TConstr(tx,[]), tys
 
 let rec typ_exp (env : (ident * ty) list) (e,loc) =
   (fun (e,ty) -> e,canon ty) @@
@@ -133,47 +149,47 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
      | MACLE.RefAccess(e) ->
          let v = newvar() in
          let e' = typ_exp env e in
-         unify loc env (ty_of e') (TCamlRef v);
+         unify loc env (ty_of e') (ref_ v);
          TMACLE.CamlPrim(TMACLE.RefAccess e'),v
      | MACLE.RefAssign{r;e} ->
         let r' = typ_exp env r in
         let e' = typ_exp env e in
-        unify loc env (ty_of r') (TCamlRef (ty_of e'));
+        unify loc env (ty_of r') (ref_ (ty_of e'));
         TMACLE.CamlPrim(TMACLE.RefAssign{r=r';e=e'}),t_unit
      | MACLE.ArrayAccess { arr ; idx } ->
         let arr' = typ_exp env arr in
         let idx' = typ_exp env idx in
         let v = newvar() in
-        unify loc env (ty_of arr') (TCamlArray v);
+        unify loc env (ty_of arr') (array_ v);
         unify loc env (ty_of idx') t_int;
         TMACLE.CamlPrim (TMACLE.ArrayAccess{arr=arr';idx=idx'}),v
      | MACLE.ArrayAssign { arr ; idx ; e} -> 
         let arr' = typ_exp env arr in
         let idx' = typ_exp env idx in
         let e' = typ_exp env e in
-        unify loc env (ty_of arr') (TCamlArray (ty_of e'));
+        unify loc env (ty_of arr') (array_ (ty_of e'));
         unify loc env (ty_of idx') t_int;
         TMACLE.CamlPrim (TMACLE.ArrayAssign{arr=arr';idx=idx';e=e'}),t_unit
      | MACLE.ArrayLength e -> 
          let e'= typ_exp env e in
          let v = newvar() in
-         unify loc env (ty_of e') (TCamlArray v);
+         unify loc env (ty_of e') (array_ v);
          TMACLE.CamlPrim (TMACLE.ArrayLength e'),t_int
      | MACLE.ListHd e -> 
          let e' = typ_exp env e in
          let v = newvar() in
-         unify loc env (ty_of e') (TCamlList v);
+         unify loc env (ty_of e') (list_ v);
          TMACLE.CamlPrim (TMACLE.ListHd e'),v
      | MACLE.ListTl e -> 
          let e' = typ_exp env e in
          let v = newvar() in
          let te = ty_of e' in
-         unify loc env te (TCamlList v);
+         unify loc env te (list_ v);
          TMACLE.CamlPrim (TMACLE.ListTl e'),te
     | MACLE.ArrayMapBy(n,q,e) ->
          let v = newvar() in
          let e' = typ_exp env e in
-         unify loc env (TCamlArray v) (ty_of e');
+         unify loc env (array_ v) (ty_of e');
          let tf = typ_state q env in
          unify loc env tf (TFun([v],v));
          (* force la transformation à être de la forme 'a -> 'a,
@@ -182,7 +198,7 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
     | MACLE.ArrayFoldLeft(q,init,e) ->
        let v = newvar() in
        let e' = typ_exp env e in
-       unify loc env (TCamlArray v) (ty_of e');
+       unify loc env (array_ v) (ty_of e');
        let init' = typ_exp env init in
        let tyr = ty_of init' in
        let tf = typ_state q env in
@@ -191,7 +207,7 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
     | MACLE.ListFoldLeft(q,init,e) ->
        let v = newvar() in
        let e' = typ_exp env e in
-       unify loc env (TCamlList v) (ty_of e');
+       unify loc env (list_ v) (ty_of e');
        let init' = typ_exp env init in
        let tyr = ty_of init' in
        let tf = typ_state q env in
@@ -208,8 +224,8 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
       unify loc env tf' tf;
       TMACLE.App(q,es'),tr
   | MACLE.LetFun(((q,xs),e1),e2) ->
-    let tys = List.map (fun x -> newvar ()) xs in
-    let bs = List.combine xs tys in
+    let tys = List.map (fun (x,_) -> newvar ()) xs in
+    let bs = List.map2 (fun (x,_) ty -> x,ty) xs tys in
     let e1' =
       let env1 = bs @ env in
       typ_exp env1 e1 
@@ -223,19 +239,38 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
       let env_ext = List.map (fun ((q,xs),_) -> q,List.map (fun _ -> newvar ()) xs,newvar ()) ts in
       let env' = List.map (fun (q,tys,ty) -> q,TFun (tys,ty)) env_ext@env in
       let ts' = List.map2 (fun ((q,xs),e) (q,tys,tr) -> 
-                             let env'' = List.combine xs tys @ env' in  
+                             let env'' = List.map2 (fun (x,_) ty -> x,ty) xs tys @ env' in  
                              let e' = typ_exp env'' e in
                              unify loc env'' tr (ty_of e');
-                             ((q,List.combine xs tys),e')) ts env_ext in
+                             ((q,List.map2 (fun (x,_) ty -> x,ty) xs tys),e')) ts env_ext in
       let e' = typ_exp env' e in
       TMACLE.LetRec(ts',e'),ty_of e'
   | MACLE.Let(bs,e) ->
-      let bs' = List.map (fun (x,e) -> 
+      let bs' = List.map (fun ((x,_),e) -> 
                            let e' = typ_exp env e in 
                            ((x,ty_of e'),e')) bs in
-      let e' = typ_exp (List.map fst bs'@env) e in
+      let e' = typ_exp (List.map fst bs' @ env) e in
       TMACLE.Let(bs',e'),ty_of e'
- 
+  | MACLE.Match(e,cases) ->
+      let e' = typ_exp env e in
+      let v = newvar() in
+      let cases' = List.map (fun (c,xs,e0) -> 
+                                  match typ_constr c with
+                                  | ty,tys ->
+                                     unify loc env (ty_of e') ty;
+                                     if List.compare_lengths xs tys <> 0 then 
+                                        assert false (* TODO arity constructor raise (Cannot_unify(t1,t2,loc)); *)
+                                     else
+                                     let xs' = List.map2 (fun (xopt,_) ty -> (xopt,ty)) xs tys in
+                                     let extra_env = List.filter_map (function 
+                                                        | (Some x,ty) -> Some (x,ty) 
+                                                        | (None,_) -> None) xs' in 
+                                     let env' = extra_env @ env in
+                                     let e0' = typ_exp env' e0 in
+                                     unify loc env' v (ty_of e0');
+                                     (c,xs',e0')) cases in
+      TMACLE.Match(e',cases'),v
+
 let rec canon_exp (desc,ty) = 
   let open TMACLE in
   (fun desc' -> desc',canon ty) @@
@@ -261,6 +296,11 @@ let rec canon_exp (desc,ty) =
   | Let(bs,e) -> 
       Let(List.map (fun ((x,ty),e) -> (x,canon ty), canon_exp e) bs, 
           canon_exp e)
+  | Match(e,cases) -> 
+      let cases' = List.map (fun (c,xs,e) -> 
+                        let xs' = List.map (fun (x,ty) -> x,canon ty) xs in
+                        (c,xs', canon_exp e)) cases in
+      Match(canon_exp e,cases')
   | CamlPrim(c) ->
       let c' = 
           match c with
@@ -291,12 +331,12 @@ let rec canon_exp (desc,ty) =
        CamlPrim c'
 
 
-let typing_circuit MACLE.{x;xs;e;loc} =
+let typing_circuit MACLE.{x;xs;e;decoration=loc} =
   try 
-    let xs = List.map (fun x -> (x,newvar ())) xs in
+    let xs = List.map (fun (x,_) -> (x,newvar ())) xs in
     let e' = typ_exp xs e in
     let xs = List.map (fun (x,t) -> (x,canon t)) xs in
-    TMACLE.{x;xs;s=[];ty=ty_of e';e=canon_exp e'}
+    TMACLE.{x;xs;decoration=ty_of e';e=canon_exp e'}
   with
   | Unbound_state q -> 
       error x loc @@
@@ -307,7 +347,7 @@ let typing_circuit MACLE.{x;xs;e;loc} =
      fun fmt () -> 
      Format.fprintf fmt 
        "Primitive %a as %d arguments but %d arguments were extected." 
-         Pprint_ast.PP_atom.pp_op p n expected
+         Pprint_atom.pp_op p n expected
   | Cannot_unify (t1,t2,loc) ->
       error x loc @@
       fun fmt () -> 

@@ -50,11 +50,20 @@ let rec r_e env (e,ty) =
   | App(x,es) -> 
       let es' = List.map (r_e env) es in
       App(r_ident env x, es')
+  | Match(e,cases) ->
+     let e' = r_e env e in 
+     let cases' = List.map (fun (c,xs,e) -> 
+                   let ys = List.filter_map fst xs in
+                   let ys' = List.map (fun _ -> Gensym.gensym "a") ys in
+                   let env' = List.combine ys ys' @ env in 
+                   (c,List.map (function (Some x,ty) -> (Some (r_ident env' x),ty) | pty -> pty) xs,
+                      r_e env' e)) cases in
+    Match(e',cases')
   | CamlPrim c ->
       CamlPrim 
       (match c with 
        | ArrayAccess{arr;idx} ->
-           ArrayAccess{arr=r_e env arr;idx=r_e env idx}
+           ArrayAccess{ arr = r_e env arr ; idx = r_e env idx }
        | RefAccess e ->
            RefAccess (r_e env e)
        | ArrayLength e ->
@@ -64,9 +73,9 @@ let rec r_e env (e,ty) =
        | ListTl e -> 
            ListTl (r_e env e)
        | RefAssign{r;e} ->
-            RefAssign{r=r_e env r;e= r_e env e}
+            RefAssign{ r = r_e env r;e = r_e env e }
        | ArrayAssign{arr;idx;e} ->
-           ArrayAssign{arr= r_e env arr;idx= r_e env idx;e= r_e env e}
+           ArrayAssign{ arr = r_e env arr ; idx = r_e env idx ; e= r_e env e }
        | ListFoldLeft(q,init,e) ->
            ListFoldLeft(r_ident env q,r_e env init,r_e env e) 
        | ArrayFoldLeft(q,init,e) ->
