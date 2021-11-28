@@ -11,12 +11,14 @@ type token =
   | TYPE
   | TIMES
   | THEN
+  | STRING_LIT of (string)
   | SEMI_SEMI
   | SEMICOL
   | RPAREN
   | RIGHT_ARROW
   | REC
   | RBRACKET
+  | RAISE
   | QUOTE of (string)
   | PLUS
   | PIPE_PIPE
@@ -39,6 +41,7 @@ type token =
   | LE
   | LBRACKET
   | LAND
+  | INVALID_ARG
   | INT_LIT of (int)
   | INT
   | IN
@@ -46,6 +49,7 @@ type token =
   | IDENT of (string)
   | GT
   | GE
+  | FAILURE
   | EQ
   | EOF
   | ELSE

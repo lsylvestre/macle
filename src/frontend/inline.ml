@@ -55,6 +55,8 @@ let substitution env (e:exp) =
                     | None,_ -> true) xs);
           (c,xs,aux e)) cases in 
       Match(e',cases')
+  | Raise _ -> 
+      desc
   | CamlPrim c ->
       CamlPrim 
       (match c with 
@@ -157,7 +159,8 @@ let rec inline rec_env env (desc,ty) =
       let e' = inline rec_env env e in
       let cases' = List.map (fun (c,xs,e) -> (c,xs,inline rec_env env e)) cases in 
       Match(e',cases'),ty
-
+  | Raise _ -> 
+      desc,ty
   | CamlPrim r -> 
     let c = 
       match r with

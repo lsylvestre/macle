@@ -111,17 +111,26 @@ let rec pp_exp fmt (e,ty) =
       | Some x,ty -> fprintf fmt "(%a : %a)" pp_ident x print_ty ty in
       let pp_pats fmt = function
       | [] -> ()
-      | xs ->  
+      | xs ->
         pp_print_text fmt "(";
         pp_print_list 
          ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_pat fmt xs;
         pp_print_text fmt ")" in
-      fprintf fmt "%s%a -> %a" c pp_pats xs pp_exp e;    
+      match c,xs with
+      | "::",[x;y] -> fprintf fmt "%a::%a -> %a" pp_pat x pp_pat y pp_exp e
+      | _ -> fprintf fmt "%s%a -> %a" c pp_pats xs pp_exp e  
     in
     fprintf fmt "(@[<v>match (%a : %a) with@," pp_exp e print_ty (ty_of e);
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_case fmt cases;
-    fprintf fmt "_ -> assert false)@]";
+    fprintf fmt "| _ -> assert false";
+    fprintf fmt ")@]";
+| Raise exc -> 
+    (match exc with
+    | Exception_Failure s -> 
+        fprintf fmt "(raise @@ Failure \"%s\")" s
+    | Exception_Invalid_arg s -> 
+        fprintf fmt "(raise @@ Invalid_arg \"%s\")" s)
 | CamlPrim e -> 
 (match e with
 | RefAccess e -> 

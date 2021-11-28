@@ -1,5 +1,6 @@
 val allow_heap_access : bool ref
 val allow_heap_assign : bool ref
+val allow_trap : bool ref
 
 val caml_heap_base : string
 

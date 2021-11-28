@@ -270,6 +270,9 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
                                      unify loc env' v (ty_of e0');
                                      (c,xs',e0')) cases in
       TMACLE.Match(e',cases'),v
+  
+  | MACLE.Raise exc ->
+      TMACLE.Raise(exc),newvar()
 
 let rec canon_exp (desc,ty) = 
   let open TMACLE in
@@ -301,6 +304,8 @@ let rec canon_exp (desc,ty) =
                         let xs' = List.map (fun (x,ty) -> x,canon ty) xs in
                         (c,xs', canon_exp e)) cases in
       Match(canon_exp e,cases')
+  | Raise _ -> 
+      desc
   | CamlPrim(c) ->
       let c' = 
           match c with

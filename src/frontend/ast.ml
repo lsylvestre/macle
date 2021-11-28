@@ -9,6 +9,11 @@ open Types
 
 open Atom
 
+type predefined_exception = 
+  | Exception_Failure of string
+  | Exception_Invalid_arg of string
+
+
 module Make(D : sig type decoration end) = struct
 
   type decoration = D.decoration
@@ -32,6 +37,7 @@ module Make(D : sig type decoration end) = struct
   | LetFun of ((ident * (ident * decoration) list) * exp) * exp
   | Let of ((ident * decoration) * exp) list * exp
   | Match of exp * case list
+  | Raise of predefined_exception
   | CamlPrim of interop
   
   and case = constr * (ident option * decoration) list * exp
@@ -176,7 +182,9 @@ in
 
 
 let env_constructor : (string * (string * int * ty list)) list ref =
- ref (["[]",("list",0,[])])
+  let v = Types.newvar () in
+ ref (["[]",("list",0,[]);
+       "::",("list",0,[v;list_ v])])
 
 let add_constructor x ty n tys = 
   env_constructor := (x,(ty,n,tys))::!env_constructor

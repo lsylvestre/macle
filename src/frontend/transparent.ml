@@ -27,6 +27,8 @@ let transparent e =
     | Match(e,cases) ->
         aux env e &&
         List.for_all (fun (_,_,e) -> aux env e) cases
+    | Raise _ -> 
+        false
     | CamlPrim c -> 
         (match c with 
          | ArrayAccess { arr ; idx } ->

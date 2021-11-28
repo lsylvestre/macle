@@ -113,6 +113,8 @@ let rec expand ((desc,ty) as e) =
   | Match(e,cases) -> 
       let cases' = List.map (fun (c,xs,e) -> c,xs,expand e) cases in
       Match(expand e,cases'),ty
+  | Raise _ -> 
+      e
   | CamlPrim r -> 
     (match r with
     | RefAccess e -> 

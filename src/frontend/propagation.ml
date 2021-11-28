@@ -40,6 +40,8 @@ let propagation (e:exp) =
   | Match(e,cases) ->
       let cases' = List.map (fun (c,xs,e) -> c,xs,aux env e) cases in
       Match(aux env e,cases')
+  | Raise _ -> 
+      desc
   | CamlPrim c ->
       CamlPrim 
       (match c with 

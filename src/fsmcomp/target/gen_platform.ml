@@ -360,12 +360,19 @@ let mk_platform_c fmt (envi,envo,_) name =
   fprintf fmt "@,@,while ( (result = IORD(%s_CC_BASE, %s_CC_CTL)) == 0 ); // Wait for rdy@," upName upName;
   fprintf fmt "result = IORD(%s_CC_BASE, %s_CC_RESULT); // Read result@," upName upName;
 
+  if !allow_trap then begin
+    fprintf fmt "int trap = IORD(%s_CC_BASE, %s_CC_TRAP); // Read trap@," upName upName;
+    fprintf fmt "if (trap > 0){ caml_raise_failure(\"%s\"); }" upName;
+  end;
+
+  (* ********************************************************************** *)
   if !flag_print_compute_time || !flag_print_compute_time_short then begin
      fprintf fmt "@,__dt = nios_timer_get_us() - __dt;@,";
      if !flag_print_compute_time_short then
           fprintf fmt "@,printf(\"%%d,\n\",__dt);"
      else fprintf fmt "@,printf(\"\\nellapsed time : %%d us\\n\",__dt);@,@,";
   end;
+  (* ********************************************************************** *)
   fprintf fmt "return result;@]";
   fprintf fmt "@,@]}@,@]@."
 

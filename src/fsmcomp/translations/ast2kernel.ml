@@ -61,6 +61,8 @@ let rec c_e e =
   | Match(e,cases),ty ->
       let cases' = List.map (fun (c,xs,e) -> c,xs,c_e e) cases in
       plug1 e (fun x -> Match(x,cases'),ty)
+  | Raise _,_ -> 
+      e
   | CamlPrim p,ty ->
         (match p with
         | RefAccess e ->

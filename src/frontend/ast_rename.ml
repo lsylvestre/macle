@@ -59,6 +59,8 @@ let rec r_e env (e,ty) =
                    (c,List.map (function (Some x,ty) -> (Some (r_ident env' x),ty) | pty -> pty) xs,
                       r_e env' e)) cases in
     Match(e',cases')
+  | Raise _ as d -> 
+      d
   | CamlPrim c ->
       CamlPrim 
       (match c with 

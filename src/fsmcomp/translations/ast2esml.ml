@@ -247,6 +247,10 @@ and c_e env idle result e : ESML.exp m =
         ret @@ e2
       in 
       ret @@ (if_ (Prim(IsImm,[a])) e1' e2')
+  | Raise exc ->
+      Esml2vhdl.allow_trap := true;
+      let open ESML in
+      ret @@ do_ [("trap",Atom.mk_int 1)] (state_ idle)
   | LetRec(ts,e) -> 
       let env' = List.map (fun ((x,args),_) -> (x,args)) ts @ env in
       let* ts' = 
@@ -382,6 +386,8 @@ let compile_circuit TMACLE.{x;xs;decoration;e} =
       (Out,"avm_wm_write",Ktypes.TConst TStd_logic)::
       (In,"avm_wm_waitrequest",Ktypes.TConst TStd_logic)::extra
     else extra in
+  let extra = if !Esml2vhdl.allow_trap 
+              then (Out,"trap",Ktypes.TConst TInt)::extra else extra in
   let s = List.map (fun (x,t) -> (In,x,translate_type t)) xs @ 
             s' @ 
             extra in

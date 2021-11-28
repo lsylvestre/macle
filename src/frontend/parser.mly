@@ -23,6 +23,8 @@
 %token LBRACKET RBRACKET LIST_HD LIST_TL LIST_FOLD_LEFT MATCH COLCOL
 %token DOT RIGHT_ARROW ARRAY_LENGTH ARRAY_FOLD_LEFT ARRAY_MAP
 %token TYPE OF INT BOOL UNIT
+%token RAISE FAILURE INVALID_ARG
+%token <string> STRING_LIT
 
 %nonassoc IN
 %nonassoc SEMICOL
@@ -114,6 +116,12 @@ mexp:
 | MATCH e=mexp WITH PIPE? cases=separated_list(PIPE,match_case)
     { mk_loc $loc @@ MACLE.Match(e,cases) }
 
+| RAISE LPAREN e=exc RPAREN { mk_loc $loc @@ MACLE.Raise e }
+
+exc:
+| LPAREN e=exc RPAREN      { e }
+| FAILURE     s=STRING_LIT { Exception_Failure s }
+| INVALID_ARG s=STRING_LIT { Exception_Invalid_arg s }
 match_case:
 | cstr=constructor RIGHT_ARROW e=mexp { let (c,xs) = cstr in (c,xs,e) }
 

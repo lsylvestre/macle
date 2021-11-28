@@ -35,6 +35,8 @@ let rec occur x (desc,_) =
                            | (Some y,_) -> x = y
                            | _ -> false) xs) 
                     || occur x e) cases*)
+  | Raise _ -> 
+      false
   | CamlPrim c -> 
       (match c with 
        | ArrayAccess{arr;idx} ->

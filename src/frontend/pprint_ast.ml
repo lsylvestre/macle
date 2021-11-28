@@ -82,6 +82,12 @@ module PP_MACLE = struct
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_case fmt cases;
     fprintf fmt ")@]"
+  | Raise exc -> 
+    (match exc with
+    | Exception_Failure s -> 
+        fprintf fmt "(raise (Failure \"%s\"))" s
+    | Exception_Invalid_arg s -> 
+        fprintf fmt "(raise (Invalid_arg \"%s\"))" s)
   | CamlPrim e -> 
   (match e with
   | RefAccess e -> 
@@ -219,6 +225,12 @@ module PP_TMACLE = struct
     pp_print_list 
       ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_case fmt cases;
     fprintf fmt ")@]"
+  | Raise exc -> 
+    (match exc with
+    | Exception_Failure s -> 
+        fprintf fmt "(raise (Failure \"%s\"))" s
+    | Exception_Invalid_arg s -> 
+        fprintf fmt "(raise (Invalid_arg \"%s\"))" s)
   | CamlPrim e -> 
   (match e with
   | RefAccess e -> 

@@ -5,7 +5,7 @@ open Format
 
 let allow_heap_access = ref false
 let allow_heap_assign = ref false
-let allow_heap_alloc = ref false
+let allow_trap = ref false
 
 let caml_heap_base = "caml_heap_base"
 let avm_rm_readdata = "avm_rm_readdata"

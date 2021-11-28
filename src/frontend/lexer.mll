@@ -63,6 +63,10 @@ rule token = parse
 | "int"             { INT }
 | "bool"            { BOOL }
 | "unit"            { UNIT }
+| "raise"           { RAISE }
+| "Failure"         { FAILURE }
+| "Invalid_arg"     { INVALID_ARG }
+| ['"'][^'"']*['"'] as s { STRING_LIT s }
 | ident as lxm      { IDENT lxm }
 | up_ident as lxm   { UP_IDENT lxm }
 | ['_']             { WILDCARD }
