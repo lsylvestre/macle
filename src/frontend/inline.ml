@@ -86,9 +86,9 @@ let is_fun_type = function
 let specialize_list xs es e =
   let bs = List.combine xs es in
   let env,bs = 
-    List.partition_map (fun (((x,ty),e) as b) -> 
-                         if is_fun_type ty then Left(x,fst e) 
-                                           else Right b) bs in
+    Misc.partition_map (fun (((x,ty),e) as b) -> 
+                         if is_fun_type ty then Misc.Left(x,fst e) 
+                                           else Misc.Right b) bs in
   bs,substitution env e
 
 

@@ -34,11 +34,11 @@ let propagation (e:exp) =
       If(aux env e1,aux env e2,aux env e3)
   | Let(bs,e) ->
       let bs' = Misc.map_snd (aux env) bs in
-      let env_ext,bs = List.partition_map 
+      let env_ext,bs = Misc.partition_map 
         (function 
-         | ((x,_),((d,_) as e)) when is_atom e -> Left (x,d) 
+         | ((x,_),((d,_) as e)) when is_atom e -> Misc.Left (x,d) 
          (* | ((x,_),(((Var _ | Const _) as dc),_)) -> Left (x,dc)  *)
-         | b -> Right b) bs' 
+         | b -> Misc.Right b) bs' 
       in
       fst (mk_let bs (aux (extend env_ext env) e))
   | LetFun((qxs,e1),e2) -> 

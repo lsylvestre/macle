@@ -1,3 +1,18 @@
+(* from stdlib *)
+
+type ('a, 'b) either = Left of 'a | Right of 'b
+
+let partition_map p l =
+  let open List in
+  let rec part left right = function
+  | [] -> (rev left, rev right)
+  | x :: l ->
+     begin match p x with
+       | Left v -> part (v :: left) right l
+       | Right v -> part left (v :: right) l
+     end
+  in
+  part [] [] l
 
 let map_snd f l = List.map (fun (a,b) -> (a, f b)) l
 
