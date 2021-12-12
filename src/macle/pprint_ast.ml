@@ -28,6 +28,8 @@ let pp_binop fmt p =
   | Gt -> ">" 
   | Eq -> "="
   | Neq -> "<>"
+  | Or -> "||"
+  | And -> "&&"
 
 let pp_unop fmt p = 
   pp_print_text fmt @@
@@ -131,21 +133,11 @@ module PP_MACLE = struct
   | ArrayLength e ->
       fprintf fmt "array_length (%a)"
         pp_exp e
-  | ListHd e ->
-      fprintf fmt "list_hd (%a)"
-        pp_exp e
-  | ListTl e ->
-      fprintf fmt "list_tl (%a)"
-        pp_exp e
   | ArrayMapBy(n,x,e) ->
      fprintf fmt "array_map_by %d %s %a" n x 
         pp_exp e
   | ArrayFoldLeft(x,acc,e) ->
       fprintf fmt "array_fold_left %s %a %a" x 
-        pp_exp acc 
-        pp_exp e
-  | ListFoldLeft(x,acc,e) ->
-      fprintf fmt "list_fold_left %s %a %a" x 
         pp_exp acc 
         pp_exp e
   )
@@ -267,26 +259,12 @@ module PP_TMACLE = struct
       fprintf fmt "array_length (%a : %a)"
         pp_exp e
         print_ty (ty_of e)
-  | ListHd e ->
-      fprintf fmt "list_hd (%a : %a)"
-        pp_exp e
-        print_ty (ty_of e)
-  | ListTl e ->
-      fprintf fmt "list_tl (%a : %a)"
-        pp_exp e
-        print_ty (ty_of e)
   | ArrayMapBy(n,x,e) ->
      fprintf fmt "array_map_by %d %s (%a : %a)" n x 
         pp_exp e
         print_ty (ty_of e)
   | ArrayFoldLeft(x,acc,e) ->
       fprintf fmt "array_fold_left %s (%a : %a) (%a : %a)" x 
-        pp_exp acc 
-        print_ty (ty_of acc) 
-        pp_exp e
-        print_ty (ty_of e)
-  | ListFoldLeft(x,acc,e) ->
-      fprintf fmt "list_fold_left %s (%a : %a) (%a : %a)" x 
         pp_exp acc 
         print_ty (ty_of acc) 
         pp_exp e

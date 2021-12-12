@@ -75,9 +75,9 @@ let parenthesized ~paren fmt cb =
   if paren then fprintf fmt ")" 
 
 let is_ptr t = 
-  let open Ktypes in
+  let open Typ in
   match t with
-  Ktypes.TPtr _ | TVar _ -> true
+  TPtr _ | TVar _ -> true
   | _ (* immediate value *) -> false
 
 let c_const fmt c = 
@@ -208,7 +208,7 @@ let c_transitions (dst:state) fmt ts =
     (c_transition dst) fmt ts
 
 let rec default_value fmt ty =
-  let open Ktypes in
+  let open Typ in
   match ty with
   | TConst TStd_logic -> pp_print_text fmt "'-'"
   | TConst TBool -> pp_print_text fmt "false"
@@ -232,7 +232,7 @@ let c_automaton ~reset ~clock (state_var:state) locals fmt (ts,e) =
   fprintf fmt "end process;@,"
 
 let rec c_ty fmt ty = 
-  let open Ktypes in
+  let open Typ in
   match ty with
   | TConst TStd_logic -> pp_print_text fmt "std_logic"
   | TConst TBool -> pp_print_text fmt "boolean"

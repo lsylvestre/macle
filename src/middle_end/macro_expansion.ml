@@ -4,23 +4,14 @@ open Types
 
 open Gensym
 
-let mk_list_fold_left q init el =
-  let tyl = ty_of el in
-  let ty = list_ty tyl in
-  let tyr = ty_of init in
-  let q' = gensym "aux" in
-  let l = gensym "l" in
-  let l2 = gensym "l2" in
-  let x = gensym "x" in
-  let acc = gensym "acc" in
-  let acc2 = gensym "acc2" in
-  mk_letrec1 q' [(acc,tyr);(l,tyl)]
-    (mk_if (mk_binop ~ty:t_bool Eq (Var l,tyl) (mk_empty_list,tyl)) (Var acc,tyr) @@
-     mk_let1 (x,ty) (mk_list_hd (Var l,tyl)) @@
-     mk_let [ ((acc2,tyr), mk_app ~ty:tyr q [(Var acc,tyr);(Var x,ty)]);
-              ((l2,tyl),   mk_list_tl (Var l,tyl)) ] @@
-        (mk_app ~ty:tyr q' [(Var acc2,tyr);(Var l2,tyl)])) @@
-  mk_app ~ty:tyr  q' [init;el]
+(* expand :
+   - [or e1 e2] into [if e1 then true else e2]
+   - [and e1 e2] into [if e1 then e2 else false]
+   - array/list combinators
+   - wrap array_get and array_set
+     into a safe error handling to manage index out of bounds 
+
+*)
 
 let mk_array_fold_left q init earr =
   let tarr_ty = ty_of earr in
@@ -90,6 +81,12 @@ let rec expand ((desc,ty) as e) =
   | (Var _ | Const _) -> e
   | Unop(p,e) ->
       Unop(p,expand e),ty
+  | Binop(Or,e1,e2) ->
+     (* lazy [or] *)
+     mk_if e1 (mk_bool true) e2
+  | Binop(And,e1,e2) ->
+     (* lazy [and] *)
+     mk_if e1 e2 (mk_bool false)
   | Binop(p,e1,e2) ->
       Binop(p,expand e1, expand e2),ty
   | If(e1,e2,e3) ->
@@ -122,25 +119,38 @@ let rec expand ((desc,ty) as e) =
                   e = expand e
                 }),ty
     | ArrayAccess{arr;idx} ->
-        CamlPrim(ArrayAccess{ 
-                  arr = expand arr ;
-                  idx = expand idx 
-                }),ty
+        let x_arr = gensym "x" in
+        let y_idx = gensym "y" in
+        let z = gensym "z" in
+        let err = Raise (Exception_Invalid_arg "Index out of bounds"),ty in
+        mk_let [(x_arr,ty_of arr),expand arr;
+                (y_idx,t_int),expand idx] @@
+        mk_if (mk_binop ~ty:t_bool Lt (Var y_idx,t_int) (mk_int 0)) err @@
+        mk_let1 (z,t_int) (mk_array_length (Var x_arr, ty_of arr)) @@
+        mk_if (mk_binop ~ty:t_bool Ge (Var y_idx,t_int) (Var z,t_int)) err 
+        @@
+        (CamlPrim(ArrayAccess{ 
+                  arr = (Var x_arr,ty_of arr) ;
+                  idx = (Var y_idx,t_int)
+                }),ty)
     | ArrayAssign{arr;idx;e} ->
-        CamlPrim(ArrayAssign{ 
-                  arr = expand arr ;
-                  idx = expand idx ;
+        let x_arr = gensym "x" in
+        let y_idx = gensym "y" in
+        let z = gensym "z" in
+        let err = Raise (Exception_Invalid_arg "Index out of bounds"),ty in
+        mk_let [(x_arr,ty_of arr),expand arr;
+                (y_idx,t_int),expand idx] @@
+        mk_if (mk_binop ~ty:t_bool Lt (Var y_idx,t_int) (mk_int 0)) err @@
+        mk_let1 (z,t_int) (mk_array_length (Var x_arr, ty_of arr)) @@
+        mk_if (mk_binop ~ty:t_bool Ge (Var y_idx,t_int) (Var z,t_int)) err
+        @@
+        (CamlPrim(ArrayAssign{ 
+                  arr = (Var x_arr,ty_of arr) ;
+                  idx = (Var y_idx,t_int) ;
                   e = expand e
-                }),ty
+                }),ty)
     | ArrayLength e -> 
         CamlPrim(ArrayLength(expand e)),ty
-    | ListHd e -> 
-        CamlPrim(ListHd(expand e)),ty
-    | ListTl e -> 
-        CamlPrim(ListTl(expand e)),ty
-    | ListFoldLeft(q,init,e) ->
-        expand @@
-        mk_list_fold_left q init e
     | ArrayFoldLeft(q,init,e) ->
         expand @@
         mk_array_fold_left q init e

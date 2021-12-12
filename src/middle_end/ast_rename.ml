@@ -70,16 +70,10 @@ let rec r_e env (e,ty) =
            RefAccess (r_e env e)
        | ArrayLength e ->
            ArrayLength (r_e env e)
-       | ListHd e -> 
-           ListHd (r_e env e)
-       | ListTl e -> 
-           ListTl (r_e env e)
        | RefAssign{r;e} ->
             RefAssign{ r = r_e env r;e = r_e env e }
        | ArrayAssign{arr;idx;e} ->
            ArrayAssign{ arr = r_e env arr ; idx = r_e env idx ; e = r_e env e }
-       | ListFoldLeft(q,init,e) ->
-           ListFoldLeft(r_ident env q,r_e env init,r_e env e) 
        | ArrayFoldLeft(q,init,e) ->
            ArrayFoldLeft(r_ident env q,r_e env init,r_e env e)
        | ArrayMapBy(n,q,e) ->

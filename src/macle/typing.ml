@@ -66,10 +66,13 @@ let typ_operator = function
     TFun([t_int;t_int],t_bool)
 | `Binop (Eq|Neq) ->
     TFun([t_int;t_int],t_bool)
+| `Binop (Or|And) ->
+    TFun([t_bool;t_bool],t_bool)
 | `Unop Not -> 
     TFun([t_bool],t_bool)
 | `Unop (Uminus|DivBy2|Mod2) -> 
     TFun([t_int],t_int)
+
 
 let first_order_side_condition t = 
   let first_order = function 
@@ -156,17 +159,6 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
          let v = newvar() in
          unify loc env (ty_of e') (array_ v);
          TMACLE.CamlPrim (TMACLE.ArrayLength e'),t_int
-     | MACLE.ListHd e -> 
-         let e' = typ_exp env e in
-         let v = newvar() in
-         unify loc env (ty_of e') (list_ v);
-         TMACLE.CamlPrim (TMACLE.ListHd e'),v
-     | MACLE.ListTl e -> 
-         let e' = typ_exp env e in
-         let v = newvar() in
-         let te = ty_of e' in
-         unify loc env te (list_ v);
-         TMACLE.CamlPrim (TMACLE.ListTl e'),te
     | MACLE.ArrayMapBy(n,f,e) ->
          let v = newvar() in
          let e' = typ_exp env e in
@@ -184,16 +176,7 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
        let tyr = ty_of init' in
        let tf = typ_ident loc f env in
        unify loc env tf (TFun([tyr;v],tyr));
-       TMACLE.CamlPrim(TMACLE.ArrayFoldLeft(f,init',e')),tyr
-    | MACLE.ListFoldLeft(f,init,e) ->
-       let v = newvar() in
-       let e' = typ_exp env e in
-       unify loc env (list_ v) (ty_of e');
-       let init' = typ_exp env init in
-       let tyr = ty_of init' in
-       let tf = typ_ident loc f env in
-       unify loc env tf (TFun([tyr;v],tyr));
-       TMACLE.CamlPrim(TMACLE.ListFoldLeft(f,init',e')),tyr)
+       TMACLE.CamlPrim(TMACLE.ArrayFoldLeft(f,init',e')),tyr)
   | MACLE.App(f,es) -> 
       let tf = typ_ident loc f env in
       let tr = match tf with 
@@ -308,16 +291,10 @@ let rec canon_exp (desc,ty) =
                                 e=canon_exp e} 
           | ArrayLength e ->
               ArrayLength (canon_exp e)
-          | ListHd e ->
-              ListHd (canon_exp e)
-          | ListTl e ->
-              ListTl (canon_exp e)
           | ArrayMapBy(n,q,e) ->
               ArrayMapBy(n,q, canon_exp e)
           | ArrayFoldLeft(q,e1,e2) ->
               ArrayFoldLeft(q,canon_exp e1,canon_exp e2)
-          | ListFoldLeft(q,e1,e2) ->
-              ListFoldLeft(q,canon_exp e1,canon_exp e2)
        in 
        CamlPrim c'
 

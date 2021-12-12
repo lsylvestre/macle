@@ -76,12 +76,6 @@ let rec c_e e =
         | RefAccess e ->
             plug1 e @@ fun x -> 
               CamlPrim(RefAccess(x)),ty
-        | ListHd e ->
-            plug1 e @@ fun x -> 
-              CamlPrim(ListHd(x)),ty
-        | ListTl e ->
-            plug1 e @@ fun x -> 
-              CamlPrim(ListTl(x)),ty
         | ArrayLength e ->
             plug1 e @@ fun x -> 
               CamlPrim(ArrayLength(x)),ty
@@ -94,7 +88,7 @@ let rec c_e e =
         | ArrayAssign{arr;idx;e} ->
             plug3 arr idx e @@ fun x1 x2 x3 ->
               CamlPrim(ArrayAssign{arr=x1;idx=x2;e=x3}),ty
-        | (ArrayMapBy _ | ArrayFoldLeft _ | ListFoldLeft _) -> 
+        | (ArrayMapBy _ | ArrayFoldLeft _) -> 
             assert false (* already expanded *)
   )
 let macle2vsml c = 

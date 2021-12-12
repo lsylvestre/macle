@@ -10,7 +10,8 @@ INCLUDES=-I src -I src/misc\
          -I src/target\
          -I src/esml\
          -I src/translations\
-         -I src/frontend\
+         -I src/macle\
+         -I src/middle_end\
          -I src/simulation\
          -I src/optimisation
 
@@ -20,11 +21,9 @@ OBJS=src/misc/misc.cmo\
      src/misc/gensym.cmo\
      \
      src/esml/esml.cmo\
-     src/esml/ktypes.cmo\
-     src/esml/pp_ktypes.cmo\
      \
-     src/frontend/types.cmo\
-     src/frontend/ast.cmo\
+     src/macle/types.cmo\
+     src/macle/ast.cmo\
      \
      src/translations/esml2vhdl.cmo\
      \
@@ -32,33 +31,34 @@ OBJS=src/misc/misc.cmo\
      src/target/gen_platform.cmo\
      \
      \
-     src/esml/pprint_atom.cmo\
      src/esml/pprint_esml.cmo\
-     src/frontend/pprint_ast.cmo\
+     src/macle/pprint_ast.cmo\
      \
      src/simulation/ast2ocaml.cmo\
      \
-     src/frontend/typing.cmo\
-     src/frontend/check_tailrec.cmo\
-     src/frontend/ast_rename.cmo\
+     src/macle/typing.cmo\
+     src/macle/check_tailrec.cmo\
+     \
      src/translations/macle2vsml.cmo\
      src/translations/vsml2esml.cmo\
-     src/frontend/occur.cmo\
-     src/frontend/inline.cmo\
-     src/frontend/macro_expansion.cmo\
+     \
+     src/middle_end/ast_rename.cmo\
+     src/middle_end/occur.cmo\
+     src/middle_end/inline.cmo\
+     src/middle_end/macro_expansion.cmo\
      \
      src/optimisation/transparent.cmo\
      src/optimisation/propagation.cmo\
      src/optimisation/let_floating.cmo\
      \
-     src/frontend/parser.cmo\
-     src/frontend/lexer.cmo\
-     src/frontend/main.cmo\
+     src/macle/parser.cmo\
+     src/macle/lexer.cmo\
+     src/macle/main.cmo\
 
     # src/fsmcomp/debug/main_debug.cmo\
 
 SRCS=`find src -name "*.ml*"`
-all: prepare src/frontend/parser.cmi $(OBJS)
+all: prepare src/macle/parser.cmi $(OBJS)
 	$(CAMLC) $(FLAGS) $(INCLUDES) -o $(EXE) $(OBJS)
 
 .SUFFIXES: .mll .mly .ml .mli .cmo .cmi 

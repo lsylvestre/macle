@@ -29,6 +29,9 @@ let tailrec e =
     | Var _ | Const _ -> ()
     | Unop(_,e) -> 
         aux ~tailpos:false lenv env e
+    | Binop((Or|And),e1,e2) -> 
+        aux ~tailpos:false lenv env e1;
+        aux ~tailpos lenv env e2
     | Binop(_,e1,e2) -> 
         aux ~tailpos:false lenv env e1;
         aux ~tailpos:false lenv env e2
@@ -62,7 +65,7 @@ let tailrec e =
          | ArrayAccess { arr ; idx } ->
             aux ~tailpos:false lenv env arr;
             aux ~tailpos:false lenv env idx
-         | (RefAccess e | ArrayLength e | ListHd e | ListTl e) -> 
+         | (RefAccess e | ArrayLength e) -> 
             aux ~tailpos:false lenv env e
          | ArrayAssign{arr;idx;e} -> 
             aux ~tailpos:false lenv env arr;
@@ -71,7 +74,6 @@ let tailrec e =
          | RefAssign {r;e} ->
             aux ~tailpos:false lenv env r; 
             aux ~tailpos:false lenv env e
-         | ListFoldLeft (_,e1,e2) 
          | ArrayFoldLeft (_,e1,e2) ->  
             aux ~tailpos:false lenv env e1; 
             aux ~tailpos:false lenv env e2

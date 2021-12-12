@@ -30,7 +30,9 @@ let rec as_atom (e,_) =
   | Lt -> A.Lt 
   | Gt -> A.Gt 
   | Eq -> A.Eq 
-  | Neq -> A.Neq 
+  | Neq -> A.Neq
+  | (Or | And) -> 
+      assert false (* lazy or/and already expanded *)
   in
   match e with
   | Const c -> A.Const (as_const c)
@@ -80,29 +82,29 @@ let all_rdy ls =
   Atom.mk_fold_binop Atom.And @@
   List.map (fun l -> Atom.(bool_of_std_logic @@ var_ (mk_rdy l))) ls
 
-let translate_tconst (tc:tconst) : Ktypes.tconst =
+let translate_tconst (tc:tconst) : Esml.Typ.tconst =
   match tc with
   | TInt ->
-      Ktypes.TInt
+      Esml.Typ.TInt
   | TBool ->
-      Ktypes.TBool
+      Esml.Typ.TBool
   | TStd_logic ->
-      Ktypes.TStd_logic
+      Esml.Typ.TStd_logic
   | TUnit ->
-      Ktypes.TUnit
+      Esml.Typ.TUnit
 
-let rec translate_type (t:ty) : Ktypes.ty =
+let rec translate_type (t:ty) : Esml.Typ.t =
   match t with
   | TConst c -> 
-      Ktypes.TConst (translate_tconst c)
+      Esml.Typ.TConst (translate_tconst c)
   | TVar {contents=V n} -> 
-      Ktypes.TVar n
+      Esml.Typ.TVar n
   | TVar {contents=Ty _} -> 
       assert false (* canonize [t] before *)
   | TConstr (x,tys) -> 
-      Ktypes.TPtr(x,List.map translate_type tys)
+      Esml.Typ.TPtr(x,List.map translate_type tys)
   | TPtr -> 
-      Ktypes.TPtr("%private",[])
+      Esml.Typ.TPtr("%private",[])
   | TFun _ -> 
       assert false (* functional value must be eliminated before *)
 
@@ -200,8 +202,8 @@ let rec c_automaton env ~i ~o ~idle ~start ~rdy ~result ~ty e =
              ESML_if(Atom.(bool_of_std_logic @@ var_ start),
                      ESML_do([rdy,Atom.std_zero],e'),
                      ESML_do([rdy,Atom.std_one],ESML_continue idle))) in
-    let* () = out ([],[t],[(i,start,Ktypes.t_std_logic);
-                          (o,rdy,Ktypes.t_std_logic);
+    let* () = out ([],[t],[(i,start,Typ.t_std_logic);
+                          (o,rdy,Typ.t_std_logic);
                           (o,result,translate_type ty)]) in
     run @@ ret (ESML_continue idle)
   in
@@ -340,18 +342,6 @@ and c_e env idle result e : Esml.inst m =
             let ts,e' = access ~idle ~result a ~field:(Atom.mk_int 0) ~ty in
             let* () = out ([],ts,[]) in
             ret e'
-        | ListHd e0 ->
-            assert (is_atom e0);
-            let a = as_atom e0 in
-            let ts,e' = access ~idle ~result a ~field:(Atom.mk_int 0) ~ty in
-            let* () = out ([],ts,[]) in
-            ret e'
-        | ListTl e0 ->
-            assert (is_atom e0);
-            let a = as_atom e0 in
-            let ts,e' = access ~idle ~result a ~field:(Atom.mk_int 1) ~ty in
-            let* () = out ([],ts,[]) in
-            ret e'
         | ArrayLength e0 ->
             assert (is_atom e0);
             let a = as_atom e0 in
@@ -380,7 +370,7 @@ and c_e env idle result e : Esml.inst m =
                                (as_atom data) (ty_of data) in
             let* () = out ([],ts,[]) in
             ret e'                   
-        | ( ArrayMapBy _ | ArrayFoldLeft _ | ListFoldLeft _) -> 
+        | ( ArrayMapBy _ | ArrayFoldLeft _) -> 
             assert false (* already expanded *)
      )
   | _ -> assert false (* atoms *)
@@ -394,24 +384,24 @@ let vsml2esml TMACLE.{x;xs;decoration;e} =
                      ~ty:decoration e in
   
   let extra = [] in
-  let ptr = Ktypes.TPtr ("%private",[]) in
+  let ptr = Typ.TPtr ("%private",[]) in
   let extra = if !Esml2vhdl.allow_heap_access
               || !Esml2vhdl.allow_heap_assign then
             (In,"caml_heap_base",ptr)::extra else extra in
   let extra = if !Esml2vhdl.allow_heap_access then 
             (Out,"avm_rm_address",ptr)::
-            (Out,"avm_rm_read",Ktypes.TConst TStd_logic)::
-            (In,"avm_rm_waitrequest",Ktypes.TConst TStd_logic)::
+            (Out,"avm_rm_read",Typ.TConst TStd_logic)::
+            (In,"avm_rm_waitrequest",Typ.TConst TStd_logic)::
             (In,"avm_rm_readdata",ptr)::extra else extra in
   let extra =
     if !Esml2vhdl.allow_heap_assign then 
       (Out,"avm_wm_writedata", ptr)::
       (Out,"avm_wm_address",ptr)::
-      (Out,"avm_wm_write",Ktypes.TConst TStd_logic)::
-      (In,"avm_wm_waitrequest",Ktypes.TConst TStd_logic)::extra
+      (Out,"avm_wm_write",Typ.TConst TStd_logic)::
+      (In,"avm_wm_waitrequest",Typ.TConst TStd_logic)::extra
     else extra in
   let extra = if !Esml2vhdl.allow_trap 
-              then (Out,"trap",Ktypes.TConst TInt)::extra else extra in
+              then (Out,"trap",Typ.TConst TInt)::extra else extra in
   let vars = List.map (fun (x,t) -> (In,x,translate_type t)) xs @ 
             s' @ 
             extra in

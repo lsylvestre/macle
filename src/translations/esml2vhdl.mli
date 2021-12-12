@@ -4,7 +4,7 @@ val allow_trap : bool ref
 
 val caml_heap_base : string
 
-val c_ty : Format.formatter -> Ktypes.ty -> unit
+val c_ty : Format.formatter -> Esml.Typ.t -> unit
 
 val compile_esml_circuit : 
   ?reset:string -> ?clock:string -> 

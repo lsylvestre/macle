@@ -66,15 +66,11 @@ let substitution env (e:exp) =
            RefAccess (aux e)
        | ArrayLength e ->
            ArrayLength (aux e) 
-       | ListHd e -> 
-           ListHd (aux e)
-       | ListTl e -> 
-           ListTl (aux e)
        | RefAssign{r;e} ->
             RefAssign{ r = aux r ; e = aux e }
        | ArrayAssign{arr;idx;e} ->
            ArrayAssign{ arr = aux arr ; idx = aux idx ; e = aux e }
-       | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
+       | (ArrayFoldLeft _ | ArrayMapBy _) -> 
            assert false (* already expanded *) )
 in aux e
 
@@ -174,11 +170,7 @@ let rec inline rec_env env (desc,ty) =
                        e = inline rec_env env e}
       | ArrayLength e -> 
           ArrayLength(inline rec_env env e)
-      | ListHd e -> 
-          ListHd(inline rec_env env e)
-      | ListTl e -> 
-          ListTl(inline rec_env env e)
-      | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
+      | (ArrayFoldLeft _ | ArrayMapBy _) -> 
           assert false (* already expanded *) 
     in (CamlPrim c),ty
 

@@ -1,6 +1,8 @@
 open Format
 open Esml2vhdl
 
+open Esml
+
   (* ***************************************** *)
 
 let flag_print_compute_time = ref false
@@ -83,7 +85,7 @@ let bin_of_int ?(pad=4) d =
   to_string b
 
 let conversion_from_vect ty fmt x =
-  let open Ktypes in
+  let open Typ in
   match ty with
   | TConst TStd_logic -> 
       fprintf fmt "%s(0)" x
@@ -96,7 +98,7 @@ let conversion_from_vect ty fmt x =
   | (TPtr _| TVar _) ->  pp_print_text fmt x(* assert false *)
   
 let set_result dst ty fmt x =
-  let open Ktypes in
+  let open Typ in
   match ty with
   | TConst TStd_logic -> 
       fprintf fmt "%s <= X\"0000000\" & \"000\" & %s" dst x
@@ -268,7 +270,7 @@ let gen_cc fmt (envi,envo,_) (envi',envo',_) name =
   fprintf fmt "end architecture;@]@,"
 
 let t_val ty fmt x =
- let open Ktypes in
+ let open Typ in
   match ty with
   | TConst TStd_logic
   | TConst TBool -> fprintf fmt "Bool_val(%s)" x
@@ -277,7 +279,7 @@ let t_val ty fmt x =
   | (TPtr _ | TVar _) -> pp_print_text fmt x
 
 let val_t ty fmt cb =
-  let open Ktypes in
+  let open Typ in
   fprintf fmt "return ";
   match ty with 
   | TConst  TInt | TConst  TBool -> (* immediate *)
@@ -308,7 +310,7 @@ let mk_platform_bindings fmt (envi,envo,_) name =
 
 
 let t_C ty =
- let open Ktypes in
+ let open Typ in
   match ty with
   | TConst _ -> "int"
   | (TPtr _ | TVar _) -> "uint32_t"
@@ -411,7 +413,7 @@ let mk_simul_h = mk_platform_h
 
 
 let rec t_ML fmt ty =
-  let open Ktypes in
+  let open Typ in
   match ty with
   | TConst TStd_logic
   | TConst TBool -> 

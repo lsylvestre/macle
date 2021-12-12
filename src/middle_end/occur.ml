@@ -37,11 +37,11 @@ let rec occur x (desc,_) =
       (match c with 
        | ArrayAccess{arr;idx} ->
            occur x arr || occur x idx
-       | (RefAccess e | ArrayLength e | ListHd e | ListTl e) -> 
+       | (RefAccess e | ArrayLength e) -> 
            occur x e
        | RefAssign { r ; e } ->
            occur x r || occur x e
        | ArrayAssign { arr ; idx ; e } ->
            occur x arr || occur x idx || occur x e
-       | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
+       | (ArrayFoldLeft _ | ArrayMapBy _) -> 
            assert false (* already expanded *) )

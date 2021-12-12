@@ -13,121 +13,121 @@ src/esml/pp_ktypes.cmx : \
 src/esml/pprint_atom.cmo : \
     src/esml/pp_ktypes.cmo \
     src/esml/esml.cmo \
-    src/frontend/ast.cmo
+    src/macle/ast.cmo
 src/esml/pprint_atom.cmx : \
     src/esml/pp_ktypes.cmx \
     src/esml/esml.cmx \
-    src/frontend/ast.cmx
+    src/macle/ast.cmx
 src/esml/pprint_esml.cmo : \
     src/esml/pprint_atom.cmo \
     src/esml/esml.cmo
 src/esml/pprint_esml.cmx : \
     src/esml/pprint_atom.cmx \
     src/esml/esml.cmx
-src/frontend/ast.cmo : \
-    src/frontend/types.cmo \
+src/macle/ast.cmo : \
+    src/macle/types.cmo \
     src/misc/loc.cmo \
     src/misc/gensym.cmo
-src/frontend/ast.cmx : \
-    src/frontend/types.cmx \
+src/macle/ast.cmx : \
+    src/macle/types.cmx \
     src/misc/loc.cmx \
     src/misc/gensym.cmx
-src/frontend/ast_rename.cmo : \
-    src/misc/gensym.cmo \
-    src/frontend/ast.cmo \
-    src/frontend/ast_rename.cmi
-src/frontend/ast_rename.cmx : \
-    src/misc/gensym.cmx \
-    src/frontend/ast.cmx \
-    src/frontend/ast_rename.cmi
-src/frontend/ast_rename.cmi : \
-    src/frontend/ast.cmo
-src/frontend/check_tailrec.cmo : \
-    src/frontend/pprint_ast.cmo \
+src/macle/check_tailrec.cmo : \
+    src/macle/pprint_ast.cmo \
     src/misc/loc.cmo \
-    src/frontend/ast.cmo
-src/frontend/check_tailrec.cmx : \
-    src/frontend/pprint_ast.cmx \
+    src/macle/ast.cmo
+src/macle/check_tailrec.cmx : \
+    src/macle/pprint_ast.cmx \
     src/misc/loc.cmx \
-    src/frontend/ast.cmx
-src/frontend/inline.cmo : \
-    src/frontend/types.cmo \
-    src/frontend/occur.cmo \
-    src/misc/misc.cmo \
-    src/misc/gensym.cmo \
-    src/frontend/ast.cmo \
-    src/frontend/inline.cmi
-src/frontend/inline.cmx : \
-    src/frontend/types.cmx \
-    src/frontend/occur.cmx \
-    src/misc/misc.cmx \
-    src/misc/gensym.cmx \
-    src/frontend/ast.cmx \
-    src/frontend/inline.cmi
-src/frontend/inline.cmi : \
-    src/frontend/ast.cmo
-src/frontend/macro_expansion.cmo : \
-    src/frontend/types.cmo \
-    src/misc/gensym.cmo \
-    src/frontend/ast.cmo
-src/frontend/macro_expansion.cmx : \
-    src/frontend/types.cmx \
-    src/misc/gensym.cmx \
-    src/frontend/ast.cmx
-src/frontend/main.cmo : \
+    src/macle/ast.cmx
+src/macle/main.cmo : \
     src/translations/vsml2esml.cmi \
-    src/frontend/typing.cmo \
+    src/macle/typing.cmo \
     src/optimisation/propagation.cmi \
-    src/frontend/pprint_ast.cmo \
-    src/frontend/parser.cmi \
-    src/frontend/macro_expansion.cmo \
+    src/macle/pprint_ast.cmo \
+    src/macle/parser.cmi \
+    src/middle_end/macro_expansion.cmo \
     src/translations/macle2vsml.cmi \
     src/optimisation/let_floating.cmi \
-    src/frontend/inline.cmi \
+    src/middle_end/inline.cmi \
     src/target/gen_platform.cmo \
     src/translations/esml2vhdl.cmi \
-    src/frontend/check_tailrec.cmo \
-    src/frontend/ast_rename.cmi \
+    src/macle/check_tailrec.cmo \
+    src/middle_end/ast_rename.cmi \
     src/simulation/ast2ocaml.cmi \
-    src/frontend/ast.cmo
-src/frontend/main.cmx : \
+    src/macle/ast.cmo
+src/macle/main.cmx : \
     src/translations/vsml2esml.cmx \
-    src/frontend/typing.cmx \
+    src/macle/typing.cmx \
     src/optimisation/propagation.cmx \
-    src/frontend/pprint_ast.cmx \
-    src/frontend/parser.cmi \
-    src/frontend/macro_expansion.cmx \
+    src/macle/pprint_ast.cmx \
+    src/macle/parser.cmi \
+    src/middle_end/macro_expansion.cmx \
     src/translations/macle2vsml.cmx \
     src/optimisation/let_floating.cmx \
-    src/frontend/inline.cmx \
+    src/middle_end/inline.cmx \
     src/target/gen_platform.cmx \
     src/translations/esml2vhdl.cmx \
-    src/frontend/check_tailrec.cmx \
-    src/frontend/ast_rename.cmx \
+    src/macle/check_tailrec.cmx \
+    src/middle_end/ast_rename.cmx \
     src/simulation/ast2ocaml.cmx \
-    src/frontend/ast.cmx
-src/frontend/occur.cmo : \
-    src/frontend/ast.cmo
-src/frontend/occur.cmx : \
-    src/frontend/ast.cmx
-src/frontend/parser.cmi : \
-    src/frontend/ast.cmo
-src/frontend/pprint_ast.cmo : \
-    src/frontend/types.cmo \
-    src/frontend/ast.cmo
-src/frontend/pprint_ast.cmx : \
-    src/frontend/types.cmx \
-    src/frontend/ast.cmx
-src/frontend/types.cmo :
-src/frontend/types.cmx :
-src/frontend/typing.cmo : \
-    src/frontend/types.cmo \
+    src/macle/ast.cmx
+src/macle/parser.cmi : \
+    src/macle/ast.cmo
+src/macle/pprint_ast.cmo : \
+    src/macle/types.cmo \
+    src/macle/ast.cmo
+src/macle/pprint_ast.cmx : \
+    src/macle/types.cmx \
+    src/macle/ast.cmx
+src/macle/types.cmo :
+src/macle/types.cmx :
+src/macle/typing.cmo : \
+    src/macle/types.cmo \
     src/misc/loc.cmo \
-    src/frontend/ast.cmo
-src/frontend/typing.cmx : \
-    src/frontend/types.cmx \
+    src/macle/ast.cmo
+src/macle/typing.cmx : \
+    src/macle/types.cmx \
     src/misc/loc.cmx \
-    src/frontend/ast.cmx
+    src/macle/ast.cmx
+src/middle_end/ast_rename.cmo : \
+    src/misc/gensym.cmo \
+    src/macle/ast.cmo \
+    src/middle_end/ast_rename.cmi
+src/middle_end/ast_rename.cmx : \
+    src/misc/gensym.cmx \
+    src/macle/ast.cmx \
+    src/middle_end/ast_rename.cmi
+src/middle_end/ast_rename.cmi : \
+    src/macle/ast.cmo
+src/middle_end/inline.cmo : \
+    src/macle/types.cmo \
+    src/middle_end/occur.cmo \
+    src/misc/misc.cmo \
+    src/misc/gensym.cmo \
+    src/macle/ast.cmo \
+    src/middle_end/inline.cmi
+src/middle_end/inline.cmx : \
+    src/macle/types.cmx \
+    src/middle_end/occur.cmx \
+    src/misc/misc.cmx \
+    src/misc/gensym.cmx \
+    src/macle/ast.cmx \
+    src/middle_end/inline.cmi
+src/middle_end/inline.cmi : \
+    src/macle/ast.cmo
+src/middle_end/macro_expansion.cmo : \
+    src/macle/types.cmo \
+    src/misc/gensym.cmo \
+    src/macle/ast.cmo
+src/middle_end/macro_expansion.cmx : \
+    src/macle/types.cmx \
+    src/misc/gensym.cmx \
+    src/macle/ast.cmx
+src/middle_end/occur.cmo : \
+    src/macle/ast.cmo
+src/middle_end/occur.cmx : \
+    src/macle/ast.cmx
 src/misc/gensym.cmo :
 src/misc/gensym.cmx :
 src/misc/loc.cmo :
@@ -138,52 +138,52 @@ src/misc/monads.cmo :
 src/misc/monads.cmx :
 src/optimisation/let_floating.cmo : \
     src/optimisation/transparent.cmi \
-    src/frontend/occur.cmo \
+    src/middle_end/occur.cmo \
     src/misc/misc.cmo \
-    src/frontend/ast_rename.cmi \
-    src/frontend/ast.cmo \
+    src/middle_end/ast_rename.cmi \
+    src/macle/ast.cmo \
     src/optimisation/let_floating.cmi
 src/optimisation/let_floating.cmx : \
     src/optimisation/transparent.cmx \
-    src/frontend/occur.cmx \
+    src/middle_end/occur.cmx \
     src/misc/misc.cmx \
-    src/frontend/ast_rename.cmx \
-    src/frontend/ast.cmx \
+    src/middle_end/ast_rename.cmx \
+    src/macle/ast.cmx \
     src/optimisation/let_floating.cmi
 src/optimisation/let_floating.cmi : \
-    src/frontend/ast.cmo
+    src/macle/ast.cmo
 src/optimisation/propagation.cmo : \
     src/misc/misc.cmo \
     src/translations/macle2vsml.cmi \
-    src/frontend/ast.cmo \
+    src/macle/ast.cmo \
     src/optimisation/propagation.cmi
 src/optimisation/propagation.cmx : \
     src/misc/misc.cmx \
     src/translations/macle2vsml.cmx \
-    src/frontend/ast.cmx \
+    src/macle/ast.cmx \
     src/optimisation/propagation.cmi
 src/optimisation/propagation.cmi : \
-    src/frontend/ast.cmo
+    src/macle/ast.cmo
 src/optimisation/transparent.cmo : \
-    src/frontend/ast.cmo \
+    src/macle/ast.cmo \
     src/optimisation/transparent.cmi
 src/optimisation/transparent.cmx : \
-    src/frontend/ast.cmx \
+    src/macle/ast.cmx \
     src/optimisation/transparent.cmi
 src/optimisation/transparent.cmi : \
-    src/frontend/ast.cmo
+    src/macle/ast.cmo
 src/simulation/ast2ocaml.cmo : \
-    src/frontend/types.cmo \
+    src/macle/types.cmo \
     src/misc/gensym.cmo \
-    src/frontend/ast.cmo \
+    src/macle/ast.cmo \
     src/simulation/ast2ocaml.cmi
 src/simulation/ast2ocaml.cmx : \
-    src/frontend/types.cmx \
+    src/macle/types.cmx \
     src/misc/gensym.cmx \
-    src/frontend/ast.cmx \
+    src/macle/ast.cmx \
     src/simulation/ast2ocaml.cmi
 src/simulation/ast2ocaml.cmi : \
-    src/frontend/ast.cmo
+    src/macle/ast.cmo
 src/target/gen_hw_tcl.cmo : \
     src/translations/esml2vhdl.cmi
 src/target/gen_hw_tcl.cmx : \
@@ -193,60 +193,60 @@ src/target/gen_platform.cmo : \
     src/target/gen_hw_tcl.cmo \
     src/translations/esml2vhdl.cmi \
     src/esml/esml.cmo \
-    src/frontend/ast.cmo
+    src/macle/ast.cmo
 src/target/gen_platform.cmx : \
     src/esml/ktypes.cmx \
     src/target/gen_hw_tcl.cmx \
     src/translations/esml2vhdl.cmx \
     src/esml/esml.cmx \
-    src/frontend/ast.cmx
+    src/macle/ast.cmx
 src/translations/esml2vhdl.cmo : \
     src/esml/ktypes.cmo \
     src/misc/gensym.cmo \
     src/esml/esml.cmo \
-    src/frontend/ast.cmo \
+    src/macle/ast.cmo \
     src/translations/esml2vhdl.cmi
 src/translations/esml2vhdl.cmx : \
     src/esml/ktypes.cmx \
     src/misc/gensym.cmx \
     src/esml/esml.cmx \
-    src/frontend/ast.cmx \
+    src/macle/ast.cmx \
     src/translations/esml2vhdl.cmi
 src/translations/esml2vhdl.cmi : \
     src/esml/ktypes.cmo \
     src/esml/esml.cmo
 src/translations/macle2vsml.cmo : \
-    src/frontend/types.cmo \
+    src/macle/types.cmo \
     src/misc/gensym.cmo \
-    src/frontend/ast.cmo \
+    src/macle/ast.cmo \
     src/translations/macle2vsml.cmi
 src/translations/macle2vsml.cmx : \
-    src/frontend/types.cmx \
+    src/macle/types.cmx \
     src/misc/gensym.cmx \
-    src/frontend/ast.cmx \
+    src/macle/ast.cmx \
     src/translations/macle2vsml.cmi
 src/translations/macle2vsml.cmi : \
-    src/frontend/ast.cmo
+    src/macle/ast.cmo
 src/translations/vsml2esml.cmo : \
-    src/frontend/types.cmo \
+    src/macle/types.cmo \
     src/misc/monads.cmo \
     src/translations/macle2vsml.cmi \
     src/esml/ktypes.cmo \
     src/misc/gensym.cmo \
     src/translations/esml2vhdl.cmi \
     src/esml/esml.cmo \
-    src/frontend/ast.cmo \
+    src/macle/ast.cmo \
     src/translations/vsml2esml.cmi
 src/translations/vsml2esml.cmx : \
-    src/frontend/types.cmx \
+    src/macle/types.cmx \
     src/misc/monads.cmx \
     src/translations/macle2vsml.cmx \
     src/esml/ktypes.cmx \
     src/misc/gensym.cmx \
     src/translations/esml2vhdl.cmx \
     src/esml/esml.cmx \
-    src/frontend/ast.cmx \
+    src/macle/ast.cmx \
     src/translations/vsml2esml.cmi
 src/translations/vsml2esml.cmi : \
     src/esml/esml.cmo \
-    src/frontend/ast.cmo
+    src/macle/ast.cmo

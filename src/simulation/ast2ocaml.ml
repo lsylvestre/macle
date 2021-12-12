@@ -30,8 +30,11 @@ let pp_binop fmt p =
   | Ge -> ">=" 
   | Lt -> "<"
   | Gt -> ">" 
-  | Eq -> "="
-  | Neq -> "<>"
+  | Eq -> "=="  (* physical equality *)
+  | Neq -> "!=" (* physical inequality *)
+  | Or -> "||" 
+  | And -> "&&"
+
 
 let pp_unop fmt p = 
   pp_print_text fmt @@
@@ -179,14 +182,6 @@ let rec pp_exp fmt (e,ty) =
     fprintf fmt "(Array.length (%a : %a))"
       pp_exp e
       print_ty (ty_of e)
-| ListHd e ->
-    fprintf fmt "(List.hd (%a : %a))"
-      pp_exp e
-      print_ty (ty_of e)
-| ListTl e ->
-    fprintf fmt "(List.tl (%a : %a))"
-      pp_exp e
-      print_ty (ty_of e)
 | ArrayMapBy(n,x,e) ->
    let y = Gensym.gensym "y" in
    let z = Gensym.gensym "z" in
@@ -201,13 +196,6 @@ let rec pp_exp fmt (e,ty) =
       pp_ident x 
       pp_exp acc 
       print_ty (ty_of acc)
-      pp_exp e
-      print_ty (ty_of e)
-| ListFoldLeft(x,acc,e) ->
-    fprintf fmt "(List.fold_left %a (%a : %a) (%a : %a))" 
-      pp_ident x 
-      pp_exp acc 
-      print_ty (ty_of acc) 
       pp_exp e
       print_ty (ty_of e)
 )

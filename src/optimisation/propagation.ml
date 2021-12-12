@@ -65,16 +65,10 @@ let propagation (e:exp) =
            RefAccess (aux env e)
        | ArrayLength e ->
            ArrayLength (aux env e) 
-       | ListHd e -> 
-           ListHd (aux env e)
-       | ListTl e -> 
-           ListTl (aux env e)
        | RefAssign{r;e} ->
             RefAssign { r = aux env r ; e = aux env e }
        | ArrayAssign { arr ; idx ; e } ->
            ArrayAssign { arr = aux env arr ; idx = aux env idx ; e = aux env e }
-       | ListFoldLeft(q,init,e) ->
-           ListFoldLeft(q,aux env init,aux env e) 
        | ArrayFoldLeft(q,init,e) ->
            ArrayFoldLeft(q,aux env init,aux env e)
        | ArrayMapBy(n,q,e) ->

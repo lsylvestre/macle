@@ -2,12 +2,10 @@
 (* The type of tokens. *)
 
 type token = 
-  | ZERO
   | WITH
   | WILDCARD
   | UP_IDENT of (string)
   | UNIT
-  | UMINUS
   | TYPE
   | TIMES
   | THEN
@@ -23,8 +21,6 @@ type token =
   | PLUS
   | PIPE_PIPE
   | PIPE
-  | OTHERWISE
-  | ONE
   | OF
   | NOT
   | NEQ
@@ -33,9 +29,6 @@ type token =
   | MATCH
   | LT
   | LPAREN
-  | LIST_TL
-  | LIST_HD
-  | LIST_FOLD_LEFT
   | LET
   | LEFT_ARROW
   | LE
@@ -59,7 +52,6 @@ type token =
   | COLONEQ
   | COLCOL
   | CIRCUIT
-  | CASE
   | BOOL_LIT of (bool)
   | BOOL
   | BANG

@@ -74,16 +74,10 @@ let rec floating e : exp =
            RefAccess (floating e)
        | ArrayLength e ->
            ArrayLength (floating e)
-       | ListHd e -> 
-           ListHd (floating e)
-       | ListTl e -> 
-           ListTl (floating e)
        | RefAssign{r;e} ->
             RefAssign{r=floating r;e=floating e}
        | ArrayAssign{arr;idx;e} ->
            ArrayAssign{arr= floating arr;idx=floating idx;e=floating e}
-       | ListFoldLeft(q,init,e) ->
-           ListFoldLeft(q,floating init,floating e) 
        | ArrayFoldLeft(q,init,e) ->
            ArrayFoldLeft(q,floating init,floating e)
        | ArrayMapBy(n,q,e) ->

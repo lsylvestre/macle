@@ -6,16 +6,27 @@ type constr = ident
 open Types
 
 type predefined_exception = 
-  | Exception_Failure of string
-  | Exception_Invalid_arg of string
+| Exception_Failure of string
+| Exception_Invalid_arg of string
 
 type binop = 
-| Add | Sub | Mul 
-| Le | Ge | Lt | Gt 
-| Eq | Neq 
+| Add 
+| Sub 
+| Mul 
+| Le 
+| Ge 
+| Lt 
+| Gt 
+| Eq 
+| Neq 
+| Or  (* lazy *)
+| And (* lazy *)
 
 type unop = 
-| Not | Uminus | DivBy2 | Mod2
+| Not 
+| Uminus 
+| DivBy2 
+| Mod2
 
 type const = 
 | Bool of bool 
@@ -60,10 +71,7 @@ module Make(D : sig type decoration end) = struct
       -- [e1.(e2)]
       -- [e1.(e2) <- e3]
       -- [array_length e]
-      -- [list_hd e]
-      -- [list_tl e]
       -- [array_map_by n x e]
-      -- [list_fold_left f e_init e]
       -- [array_fold_left f e_init e] *)
 
   and exp = exp_desc * decoration
@@ -72,8 +80,8 @@ module Make(D : sig type decoration end) = struct
   | Const of const
   | Unop of unop * exp
   | Binop of binop * exp * exp
-  | If of (exp * exp * exp)
-  | App of (ident * exp list)
+  | If of exp * exp * exp
+  | App of ident * exp list
   | LetRec of ((ident * (ident * decoration) list) * exp) list * exp
   | LetFun of ((ident * (ident * decoration) list) * exp) * exp
   | Let of ((ident * decoration) * exp) list * exp
@@ -89,11 +97,8 @@ module Make(D : sig type decoration end) = struct
   | ArrayAccess of { arr:exp ; idx:exp }
   | ArrayAssign of { arr:exp ; idx:exp ; e:exp }
   | ArrayLength of exp
-  | ListHd of exp
-  | ListTl of exp
   | ArrayMapBy of int * ident * exp
   | ArrayFoldLeft of ident * exp * exp
-  | ListFoldLeft of ident * exp * exp
 
 end
 
@@ -163,6 +168,9 @@ module TMACLE = struct
   let mk_int n = 
     Const (Int n),t_int
 
+  let mk_bool b = 
+    Const (Bool b),t_bool
+
   let mk_unit = 
     Const Unit,t_unit
 
@@ -181,17 +189,6 @@ module TMACLE = struct
   let mk_array_assign arr idx e =
     CamlPrim (ArrayAssign {arr;idx;e}),t_unit
 
-  let mk_list_hd e =
-    match e with
-    | _,TConstr("list",[ty]) ->
-        CamlPrim(ListHd e),ty
-    | _ -> assert false
-
-  let mk_list_tl e =
-    match e with
-    | _,(TConstr("list",[ty]) as t) ->
-      CamlPrim(ListTl e),t
-    | _ -> assert false
 end
 
 (** [TMACLE] : AST of the Macle Language annotated 

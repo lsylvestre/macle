@@ -35,10 +35,10 @@ let transparent ?(with_memory_access=false) e =
         (match c with 
          | ArrayAccess { arr ; idx } ->
              not with_memory_access && (aux env arr || aux env idx)
-         | (RefAccess e | ArrayLength e | ListHd e | ListTl e) -> 
+         | (RefAccess e | ArrayLength e) -> 
              not with_memory_access && aux env e
          | RefAssign _ -> false
          | ArrayAssign _ -> false
-         | (ListFoldLeft _ | ArrayFoldLeft _ | ArrayMapBy _) -> 
+         | (ArrayFoldLeft _ | ArrayMapBy _) -> 
              assert false (* already expanded *) )
 in aux [] e
