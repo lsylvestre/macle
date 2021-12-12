@@ -1,9 +1,9 @@
-circuit list_length (l) = 
-  let rec aux (a,l) =
+circuit list_length l = 
+  let rec aux a l =
     match l with
     | [] -> a 
-    | x::l' -> aux (1+a,l') in
-  aux(0,l)
+    | _::l' -> aux (1+a) l' in
+  aux 0 l
 
 ;;;;
 

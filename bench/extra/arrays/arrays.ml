@@ -1,8 +1,8 @@
-circuit last(x) =
+circuit last x =
  x.(array_length x - 1);;
 
 
-circuit f(x) =
+circuit f x =
  x.(x.(2))
 
 ;;;;;

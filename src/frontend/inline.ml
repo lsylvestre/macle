@@ -28,12 +28,12 @@ let substitution env (e:exp) =
        | Some desc' -> desc')
   | Const _ -> 
       desc
-  | Prim (p,es) ->
-      Prim (p, List.map aux es)
+  | Unop(p,e) ->
+      Unop(p,aux e)
+  | Binop(p,e1,e2) ->
+      Binop(p,aux e1,aux e2)
   | If(e1,e2,e3) -> 
       If(aux e1,aux e2,aux e3)
-  | Case(e1,hs,e2) -> 
-      Case(aux e1,Misc.map_snd aux hs,aux e2)
   | Let(bs,e) -> 
       Let(Misc.map_snd aux bs,aux e)
   | LetFun((qxs,e1),e2) -> 
@@ -105,18 +105,15 @@ let fetch x env =
 let rec inline rec_env env (desc,ty) =
   match desc with
   | (Var _ | Const _) -> desc,ty
-  | Prim (c,es) ->
-      Prim (c,List.map (inline rec_env env) es),ty
+  | Unop(p,e) ->
+      Unop(p,inline rec_env env e),ty
+  | Binop(p,e1,e2) ->
+      Binop(p,inline rec_env env e1, inline rec_env env e2),ty
   | If(e1,e2,e3) ->
       let e1' = inline rec_env env e1 in
       let e2' = inline rec_env env e2 in
       let e3' = inline rec_env env e3 in
       mk_if e1' e2' e3'
-  | Case(e1,hs,e2) -> 
-      let e1' = inline rec_env env e1 in
-      let hs' = List.map (fun (c,e) -> c,inline rec_env env e) hs in
-      let e2' = inline rec_env env e2 in
-      Case(e1',hs',e2'),ty
   | Let(bs,e) ->
       let bs' = List.map (fun (x,e) -> (x,inline rec_env env e)) bs in 
       let e' = inline rec_env env e in (* moins les xi *)

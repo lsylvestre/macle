@@ -1,5 +1,5 @@
-circuit s(n) = 
-  let f(x) = x(x) in
-  f(f)
+circuit s n = 
+  let f x = x x in
+  f f
 ;;;;
 

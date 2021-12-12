@@ -1,9 +1,9 @@
-circuit sum (l) = 
-  let rec aux (a,l) =
+circuit sum l = 
+  let rec aux a l =
     match l with
     | [] -> a
-    | x::xs -> aux(x + a, xs) in
-  aux(0,l)
+    | x::l -> aux (x + a) l in
+  aux 0 l
 
 ;;;;
 

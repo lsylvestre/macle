@@ -51,7 +51,9 @@ let () =
                             \ of the input program\
                             \ after inlining");
       ("-no-propagation",   Arg.Clear flag_propagation, 
-                            "disable constant/copy propagation");
+                            "disable atom propagation");
+      ("-no-let-floating",   Arg.Clear flag_propagation, 
+                            "disable atom propagation");
 
       ("-verb",             Arg.Set flag_verbose, 
                             "print additionnal informations");
@@ -85,10 +87,10 @@ let parse filename =
   Esml2vhdl.allow_heap_assign := false;
 
   if !flag_verbose then Printf.printf "\ninfos: process %s:\n" filename;
-
+  
   try
     let lexbuf = Lexing.from_channel ic in
-    let (circuits,main) = Parser.platform_macle Lexer.token lexbuf in    
+    let (circuits,main) = Parser.platform_macle Lexer.token lexbuf in
     
     if !flag_simulation_typed || !flag_simulation_inlined then
       Ast.pprint_code_typ_constr_decl Format.std_formatter;
@@ -102,6 +104,8 @@ let parse filename =
           if !flag_show_ast then
             Pprint_ast.PP_MACLE.pp_circuit Format.err_formatter c;
 
+          Check_tailrec.check_tailrec c;
+
           let c = Typing.typing_circuit c in
           
           let c = Ast_rename.rename_ast c in
@@ -113,19 +117,23 @@ let parse filename =
           then Ast2ocaml.pp_circuit Format.std_formatter c else
 
           let c = Macro_expansion.expand_circuit c in
+          
           let c = Inline.inline_circuit c in
-          
 
-          (* let c = Ast2kast.compile_circuit c in 
-          
-          let c = Vsml_rename.rename_vsml_circuit c in
+          let c = Macle2vsml.macle2vsml c in   
 
-          if !flag_show_kast then  
-            Pprint_kast.PP_VSML.pp_circuit Format.err_formatter c; 
-   
-          let c = Vsml_states_rename.rename_states_vsml_circuit c in *)
-          let c = Ast2kernel.rewrite_circuit c in
+          let c = if !flag_propagation 
+                  then Propagation.constant_copy_propagation c 
+                  else c 
+          in
 
+          let c = if !flag_propagation 
+                  then Let_floating.circuit_let_floating c 
+                  else c 
+          in
+          if !flag_show_inlined_ast then
+            Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
+        
           let c = if !flag_propagation 
                   then Propagation.constant_copy_propagation c 
                   else c 
@@ -133,18 +141,12 @@ let parse filename =
 
           let c = Let_floating.circuit_let_floating c in
 
-          if !flag_show_inlined_ast then
-            Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
-          
           if !flag_simulation_inlined
           then Ast2ocaml.pp_circuit Format.std_formatter c else
           
           let c = Ast_rename.rename_ast c in
           
-          let c = Ast2esml.compile_circuit c (* if !flag_vsml2esml 
-                  then Vsml2esml.compile_vsml_circuit c 
-                  else let c = Vsml2psml.compile_vsml_circuit c in
-                       Psml2esml.compile_psml_circuit c *)
+          let c = Vsml2esml.vsml2esml c 
           in
           mk_vhdl ~labels:false c
         ) circuits;

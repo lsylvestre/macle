@@ -6,44 +6,50 @@ CAMLDEP=ocamldep
 EXE=compile
 PCF_FLAGS=
 
-INCLUDES=-I src -I src/misc -I src/fsmcomp\
-         -I src/fsmcomp/target -I src/fsmcomp/kernel\
-         -I src/fsmcomp/debug\
-         -I src/fsmcomp/renaming -I src/fsmcomp/translations\
-         -I src/frontend
+INCLUDES=-I src -I src/misc\
+         -I src/target\
+         -I src/esml\
+         -I src/translations\
+         -I src/frontend\
+         -I src/simulation\
+         -I src/optimisation
 
 OBJS=src/misc/misc.cmo\
      src/misc/monads.cmo\
      src/misc/loc.cmo\
      src/misc/gensym.cmo\
      \
-     src/fsmcomp/kernel/ktypes.cmo\
-     src/fsmcomp/kernel/atom.cmo\
+     src/esml/esml.cmo\
+     src/esml/ktypes.cmo\
+     src/esml/pp_ktypes.cmo\
      \
      src/frontend/types.cmo\
      src/frontend/ast.cmo\
      \
-     src/fsmcomp/translations/esml2vhdl.cmo\
+     src/translations/esml2vhdl.cmo\
      \
-     src/fsmcomp/target/gen_hw_tcl.cmo\
-     src/fsmcomp/target/gen_platform.cmo\
+     src/target/gen_hw_tcl.cmo\
+     src/target/gen_platform.cmo\
      \
      \
-     src/fsmcomp/kernel/kast.cmo\
-     src/fsmcomp/kernel/pprint_atom.cmo\
+     src/esml/pprint_atom.cmo\
+     src/esml/pprint_esml.cmo\
      src/frontend/pprint_ast.cmo\
-     src/frontend/ast2ocaml.cmo\
+     \
+     src/simulation/ast2ocaml.cmo\
      \
      src/frontend/typing.cmo\
+     src/frontend/check_tailrec.cmo\
      src/frontend/ast_rename.cmo\
-     src/fsmcomp/translations/ast2kernel.cmo\
-     src/fsmcomp/translations/ast2esml.cmo\
+     src/translations/macle2vsml.cmo\
+     src/translations/vsml2esml.cmo\
      src/frontend/occur.cmo\
-     src/frontend/transparent.cmo\
      src/frontend/inline.cmo\
      src/frontend/macro_expansion.cmo\
-     src/frontend/propagation.cmo\
-     src/frontend/let_floating.cmo\
+     \
+     src/optimisation/transparent.cmo\
+     src/optimisation/propagation.cmo\
+     src/optimisation/let_floating.cmo\
      \
      src/frontend/parser.cmo\
      src/frontend/lexer.cmo\

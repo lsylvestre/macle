@@ -1,4 +1,4 @@
-circuit len(x) =
+circuit len x =
  array_length x
 
 

@@ -1,12 +1,12 @@
-circuit sum (l) =
-  let fold(f,init,l) = 
-    let rec aux (acc,l) =
+circuit sum l =
+  let fold f init l = 
+    let rec aux acc l =
       match l with
         [] -> acc
-      | x::xs -> let v = f(x,acc) in aux(v,xs) in
-    aux(init,l) in
-  let add(x,y) = x + y in
-  fold (add,0,l)
+      | x::xs -> let v = f x acc in aux v xs in
+    aux init l in
+  let add x y = x + y in
+  fold add 0 l
 
 ;;;;
 

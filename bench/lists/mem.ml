@@ -1,21 +1,21 @@
-circuit rec mem(y,l) =
+circuit rec mem y l =
   match l with
   | [] -> false
-  | x::l' -> if x = y then true else mem(y,l')  ;;
+  | x::l' -> if x = y then true else mem y l'  ;;
 
-circuit sum(l) =
-  let rec aux (acc,l) = 
+circuit sum l =
+  let rec aux acc l = 
     match l with
     | [] -> acc
-    | x::l' -> aux(acc+x,l') 
-  in aux(0,l) ;;
+    | x::l' -> aux (acc+x) l' 
+  in aux 0 l ;;
   
-circuit length(l) = 
-  let rec aux (acc,l) = 
+circuit length l = 
+  let rec aux acc l = 
     match l with
     | [] -> acc
-    | x::l' -> aux(acc+1,l') 
-  in aux(0,l)
+    | x::l' -> aux (acc+1) l' 
+  in aux 0 l
 
 ;;;;;;;
 

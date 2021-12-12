@@ -1,14 +1,14 @@
-circuit assign(r) =
- let rec aux(n) = if n <= 0 then r := 42
-  else aux(n-1) in aux(100);;
+circuit assign r =
+ let rec aux n = if n <= 0 then r := 42
+  else aux (n-1) in aux 100;;
 
-circuit array_assign(a,i) =
-  let rec aux(n) = if n <= 0 then a.(i) <- 42 
-  else aux(n-1) in aux(100);;
+circuit array_assign a i =
+  let rec aux n = if n <= 0 then a.(i) <- 42 
+  else aux (n-1) in aux(100);;
 
-circuit array_assign_i(a) =
-  let rec aux(n) = if n <= 0 then a.(2)<- 42
-  else aux(n-1) in aux(100)
+circuit array_assign_i a =
+  let rec aux n = if n <= 0 then a.(2)<- 42
+  else aux (n-1) in aux 100
 
 ;;;;
 

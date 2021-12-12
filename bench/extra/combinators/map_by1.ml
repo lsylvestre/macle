@@ -1,15 +1,15 @@
-circuit fact(n) = 
-  let rec aux(acc,n) = 
-    if n <= 0 then acc else aux(acc*n,n-1) in
-    aux(1,n)  ;;
+circuit fact n = 
+  let rec aux acc n = 
+    if n <= 0 then acc else aux (acc*n) (n-1) in
+    aux 1 n  ;;
 
-circuit map_inc(a) =
-  let inc(n) =
-    let rec add(acc,n) =  
-      if n <= 0 then acc else add(acc+1,n-1)
-    in add(1,n)
+circuit map_inc a =
+  let inc n =
+    let rec add acc n =  
+      if n <= 0 then acc else add (acc+1) (n-1)
+    in add 1 n
   in
-  array_map_by(1,inc,a)
+  array_map_by 1 inc a
 
 ;;;
 

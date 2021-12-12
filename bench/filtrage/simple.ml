@@ -1,9 +1,9 @@
-circuit f (l) = 
-  let rec fact (a,n) =
-    if n = 0 then a else fact(a*n,n-1) in 
+circuit f l = 
+  let rec fact a n =
+    if n = 0 then a else fact (a*n) (n-1) in 
   match l with
-  | [] -> fact(1,6)
-  | _::_ -> fact(1,7)
+  | [] -> fact 1 6
+  | _::_ -> fact 1 7
 
 ;;;;
 

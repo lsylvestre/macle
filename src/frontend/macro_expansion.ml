@@ -62,7 +62,7 @@ let mk_array_map n q e =
   mk_let1 (size,t_int) (mk_array_length var_y) @@
   mk_letrec1 q' [(i,t_int)]
   (mk_if (mk_binop ~ty:t_bool Ge var_i var_size) mk_unit @@
-   mk_if (mk_binop ~ty:t_bool Ge var_i (mk_binop ~ty:t_int Sub var_size (mk_int n)))  
+   mk_if (mk_binop ~ty:t_bool Gt var_i (mk_binop ~ty:t_int Sub var_size (mk_int n)))  
       (mk_let1  (elem,ty_elem) (mk_array_access var_y var_i) @@
        mk_seq
               (mk_array_assign var_y var_i (mk_app ~ty:ty_elem q [Var elem,ty_elem]))
@@ -88,18 +88,15 @@ let mk_array_map n q e =
 let rec expand ((desc,ty) as e) =
   match desc with
   | (Var _ | Const _) -> e
-  | Prim (c,es) ->
-      Prim (c,List.map expand es),ty
+  | Unop(p,e) ->
+      Unop(p,expand e),ty
+  | Binop(p,e1,e2) ->
+      Binop(p,expand e1, expand e2),ty
   | If(e1,e2,e3) ->
       let e1' = expand e1 in
       let e2' = expand e2 in
       let e3' = expand e3 in
       mk_if e1' e2' e3'
-  | Case(e1,hs,e2) -> 
-      let e1' = expand e1 in
-      let hs' = List.map (fun (c,e) -> c,expand e) hs in
-      let e2' = expand e2 in
-      Case(e1',hs',e2'),ty
   | Let(bs,e) ->
       let bs' = List.map (fun (x,e) -> (x,expand e)) bs in 
       let e' = expand e in

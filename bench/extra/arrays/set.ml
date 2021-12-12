@@ -1,7 +1,7 @@
-(*circuit g(x) =
- x := 42*)
+circuit g x =
+ x := 42 ;;
 
-circuit f(x) =
+circuit f x =
  x.(1) <- 42
 
 

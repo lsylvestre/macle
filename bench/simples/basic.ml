@@ -1,34 +1,36 @@
-circuit composition(k) = 
-  let inc(m) = m + 1 in
-  let test(b) = if b then 42 else 17 in
-  let compose(f,g,x) = f(g(x)) in 
-  compose(inc,test,k)
-;;
+circuit composition k = 
+  let inc m = m + 1 in
+  let test b = if b then 42 else 17 in
+  let compose f g x = f (g x) in 
+  compose inc test k ;;
 
-circuit len(a) = 
-  array_length a ;;
-
-circuit hd(l) =
-  let rec wait(n) = 
+circuit len a = 
+  array_length a
+(*
+circuit hd l =
+  let rec wait n = 
     if n <= 0 then list_hd l 
-  else wait(n-1) in 
+  else wait (n-1) in 
   wait(1000) ;;
 
-circuit tl(l) =
-  let rec wait(n) = 
+circuit tl l =
+  let rec wait n = 
     if n <= 0 then list_tl l
-  else wait(n-1) in 
+  else wait (n-1) in 
   wait(1000);;
 
-circuit array_get(a,i) = 
+circuit array_get a i = 
   let rec wait(n) = 
     if n <= 0 then a.(i)
-  else wait(n-1) in 
-  wait(1000)
+  else wait (n-1) in 
+  wait (1000)
+*)
 (*
 circuit array_set(a,i,v) = 
   a.(i) <-v
 *)
+
+
 ;;;;
 
 let print_array a = 

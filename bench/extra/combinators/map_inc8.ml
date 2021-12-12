@@ -1,10 +1,10 @@
-circuit map8(a) =
-  let inc(n) =
-    let rec add(acc,n) =  
-      if n <= 0 then acc else add(acc+1,n-1)
-    in add(1,n)
+circuit map8 a =
+  let inc n =
+    let rec add acc n =  
+      if n <= 0 then acc else add (acc+1) (n-1)
+    in add 1 n
   in
-  array_map_by(8,inc,a) 
+  array_map_by 8 inc a 
 ;;;;
 
 let print_array a = 

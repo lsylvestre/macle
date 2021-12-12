@@ -1,43 +1,42 @@
-circuit map1(a) =
-  let inc(n) =
-    let rec add(acc,n) =  
-      if n <= 0 then acc else add(acc+1,n-1)
-    in add(1,n)
+circuit map1 a =
+  let inc n =
+    let rec add acc n =  
+      if n <= 0 then acc else add (acc+1) (n-1)
+    in add 1 n
   in
-  array_map_by(1,inc,a) ;;
+  array_map_by 1 inc a ;;
 
-circuit map2(a) =
-  let inc(n) =
-    let rec add(acc,n) =  
-      if n <= 0 then acc else add(acc+1,n-1)
-    in add(1,n)
+circuit map2 a =
+  let inc n =
+    let rec add acc n =  
+      if n <= 0 then acc else add (acc+1) (n-1)
+    in add 1 n
   in
-  array_map_by(2,inc,a) ;;
+  array_map_by 2 inc a ;;
 
-circuit map4(a) =
-  let inc(n) =
-    let rec add(acc,n) =  
-      if n <= 0 then acc else add(acc+1,n-1)
-    in add(1,n)
+circuit map4 a =
+  let inc n =
+    let rec add acc n =  
+      if n <= 0 then acc else add (acc+1) (n-1)
+    in add 1 n
   in
-  array_map_by(4,inc,a) ;;
+  array_map_by 4 inc a ;;
 
-
-circuit map16(a) =
-  let inc(n) =
-    let rec add(acc,n) =  
-      if n <= 0 then acc else add(acc+1,n-1)
-    in add(1,n)
+circuit map16 a =
+  let inc n =
+    let rec add acc n =  
+      if n <= 0 then acc else add (acc+1) (n-1)
+    in add 1 n
   in
-  array_map_by(16,inc,a) ;;
+  array_map_by 16 inc a ;;
 
-circuit map64(a) =
-  let inc(n) =
-    let rec add(acc,n) =  
-      if n <= 0 then acc else add(acc+1,n-1)
-    in add(1,n)
+circuit map64 a =
+  let inc n =
+    let rec add acc n =  
+      if n <= 0 then acc else add (acc+1) (n-1)
+    in add 1 n
   in
-  array_map_by(64,inc,a)
+  array_map_by 64 inc a
 
 ;;;;
 

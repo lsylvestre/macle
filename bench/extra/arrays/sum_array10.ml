@@ -1,7 +1,7 @@
 
-circuit sum_array(a) =
-  let rec aux(acc,i) =
-    if i < 10 then aux(acc+a.(i),i+1) else acc in aux(0,0) 
+circuit sum_array a =
+  let rec aux acc i =
+    if i < 10 then aux (acc+a.(i)) (i+1) else acc in aux 0 0 
 
 ;;;;
 

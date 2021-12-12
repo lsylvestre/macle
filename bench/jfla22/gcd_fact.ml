@@ -1,12 +1,12 @@
-circuit fact(n) = 
-  let rec aux(acc,n) = 
+circuit fact n = 
+  let rec aux acc n = 
     if n <= 0 then acc else 
-    aux(acc*n,n-1) 
-  in aux(1,n) ;;
+    aux (acc*n) (n-1) 
+  in aux 1 n ;;
 
-circuit rec gcd(a,b) =
-  if a < b then gcd (a,b-a) else
-  if a > b then gcd (a-b,a)
+circuit rec gcd a b =
+  if a < b then gcd a (b-a) else
+  if a > b then gcd (a-b) a
            else a
 
 ;;;;

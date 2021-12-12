@@ -1,13 +1,13 @@
 
-circuit rev_array(a) =
-  let rec aux(i,j) =
+circuit rev_array a =
+  let rec aux i j =
     if i >= j then () else 
       let v = a.(i) in
       let _ = a.(i) <- a.(j) in
       let _ = a.(j) <- v in
-      aux(i+1,j-1)
+      aux (i+1) (j-1)
   in
-  aux(0,array_length a-1)
+  aux 0 (array_length a-1)
 
 ;;;;
 

@@ -7,14 +7,10 @@ let rec occur x (desc,_) =
       x = x'
   | Const _ ->
       false
-  | Prim (_,es) ->
-      List.exists (occur x) es
+  | Unop(_,e) -> occur x e
+  | Binop(_,e1,e2) -> occur x e1 || occur x e2
   | If(e1,e2,e3) -> 
       occur x e1 || occur x e2 || occur x e3
-  | Case(e1,hs,e2) -> 
-      occur x e1 ||
-      List.exists (fun (_,e) -> occur x e) hs ||
-      occur x e2
   | Let(bs,e) -> 
       List.exists (fun (_,e) -> occur x e) bs ||
       (List.for_all (fun ((x',_),_) -> x <> x') bs && occur x e)

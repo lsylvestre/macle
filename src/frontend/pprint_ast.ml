@@ -1,43 +1,65 @@
 open Format
-open Kast
 open Ast
 
-let pp_state = pp_print_text
+let pp_ident = pp_print_text
+
+let pp_const fmt c =
+  match c with 
+  | Bool b ->
+      fprintf fmt "%b" b
+  | Int n ->
+      fprintf fmt "%d" n
+  | EmptyList ->
+      pp_print_text fmt "[]"
+  | Unit ->
+      pp_print_text fmt "()"
+  | Cstr c -> 
+       pp_print_text fmt c
+
+let pp_binop fmt p =
+  pp_print_text fmt @@
+  match p with 
+  | Add -> "+" 
+  | Sub -> "-"
+  | Mul -> "*" 
+  | Le -> "<=" 
+  | Ge -> ">=" 
+  | Lt -> "<"
+  | Gt -> ">" 
+  | Eq -> "="
+  | Neq -> "<>"
+
+let pp_unop fmt p = 
+  pp_print_text fmt @@
+  match p with 
+  | Not -> "not" 
+  | Uminus -> "-"
+  | DivBy2 -> "div_by_2"
+  | Mod2 -> "mod2"
 
 module PP_MACLE = struct
-  open Pprint_atom
   open MACLE
 
   let rec pp_exp fmt (e,_) = 
     match e with
     | Var x -> 
         pp_print_text fmt x
-    | Const c -> 
+    | Const c ->
         pp_const fmt c
-    | Prim (Binop p,[e1;e2]) ->
-      fprintf fmt "(%a %a @[<v>%a@])"
-        pp_exp e1
-        pp_binop p
-        pp_exp e2
-  | Prim (Unop p,[e]) ->
-          fprintf fmt "(%a %a)"
+    | Unop(p,e) ->
+        fprintf fmt "(%a %a)"
             pp_unop p
             pp_exp e
-  | Prim _ -> 
-      assert false
+    | Binop(p,e1,e2)->
+        fprintf fmt "(%a %a @[<v>%a@])"
+          pp_exp e1
+          pp_binop p
+          pp_exp e2
   | If (e1,e2,e3) ->
       fprintf fmt "if %a@ then @[<hov>%a@]@ else @[<hov>%a@]@,"
         pp_exp e1
         pp_exp e2
         pp_exp e3
-  | Case (e1,hs,e2) ->
-      let pp_handle fmt (c,e) = 
-        fprintf fmt "%a -> %a" pp_const c pp_exp e 
-      in
-      fprintf fmt "case %a with" pp_exp e1;
-      pp_print_list 
-        ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_handle fmt hs;
-      fprintf fmt "otherwise %a" pp_exp e2;
   | App (q,es) ->
       fprintf fmt "%s(" q;
       pp_print_list 
@@ -146,7 +168,6 @@ end
 
 
 module PP_TMACLE = struct
-  open Pprint_atom
   open TMACLE
   open Types
 
@@ -156,30 +177,20 @@ module PP_TMACLE = struct
         pp_print_text fmt x
     | Const c -> 
         pp_const fmt c
-    | Prim (Binop p,[e1;e2]) ->
-      fprintf fmt "(%a %a @[<v>%a@])"
-        pp_exp e1
-        pp_binop p
-        pp_exp e2
-  | Prim (Unop p,[e]) ->
-          fprintf fmt "(%a %a)"
-            pp_unop p
-            pp_exp e
-  | Prim _ -> 
-      assert false
+    | Unop(p,e) ->
+        fprintf fmt "(%a %a)"
+          pp_unop p
+          pp_exp e
+    | Binop (p,e1,e2) ->
+        fprintf fmt "(%a %a @[<v>%a@])"
+          pp_exp e1
+          pp_binop p
+          pp_exp e2
   | If (e1,e2,e3) ->
       fprintf fmt "if %a@ then @[<hov>%a@]@ else @[<hov>%a@]@,"
         pp_exp e1
         pp_exp e2
         pp_exp e3
-  | Case (e1,hs,e2) ->
-      let pp_handle fmt (c,e) = 
-        fprintf fmt "%a -> %a" pp_const c pp_exp e 
-      in
-      fprintf fmt "case (%a : %a) with" pp_exp e1 print_ty (ty_of e1);
-      pp_print_list 
-        ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_handle fmt hs;
-      fprintf fmt "otherwise %a" pp_exp e2;
   | App (q,es) ->
       fprintf fmt "%s(" q;
       pp_print_list 

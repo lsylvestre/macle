@@ -1,7 +1,7 @@
 
-circuit sum_array(a) =
-  let add(x,y) = x + y in
-  array_fold_left(add,0,a)
+circuit sum_array a =
+  let add x y = x + y in
+  array_fold_left add 0 a
 
 ;;;;
 

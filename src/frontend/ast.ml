@@ -1,23 +1,39 @@
 open Loc
-open Gensym
 
 type ident = string
-type state = string
 type constr = ident 
 
 open Types
-
-open Atom
 
 type predefined_exception = 
   | Exception_Failure of string
   | Exception_Invalid_arg of string
 
+type binop = 
+| Add | Sub | Mul 
+| Le | Ge | Lt | Gt 
+| Eq | Neq 
+
+type unop = 
+| Not | Uminus | DivBy2 | Mod2
+
+type const = 
+| Bool of bool 
+| Int of int
+| Cstr of string
+| EmptyList
+| Unit
+
+(** [Make] AST of the Macle language. 
+   Each node of the Ast is decorated by a value of type [D.decoration],
+   for instance, the location or the type of this node *)
 
 module Make(D : sig type decoration end) = struct
-
+  
   type decoration = D.decoration
-
+  
+  (* a circuit is a global function with a name [x], a sequence of arguments [xs]
+     and a body [e] that is an expression *)
   type circuit = {
     x:ident;
     xs:(ident * decoration) list;
@@ -25,13 +41,38 @@ module Make(D : sig type decoration end) = struct
     e:exp
   } 
 
+  (** an expression is 
+    - a variable [x], 
+    - a constant [c], 
+    - the application of an unary operator [- e] 
+    - the application of an binary operator [e1 + e2]
+    - a conditionnal [if e1 then e2 else e3]
+    - a function application [x e1 ... en]
+    - a declaration of mutually recursive functions 
+      [ let rec f1 xs1 = e1 and ... fn xsn = en in e]
+    - a declaration of local function [let f xs = e1 in e2]
+    - a declaration of values [let x1 = e1 and ... xn = en in e]
+    - a patern matching [match e with C1 xs1 -> e1 | ... Cn xsn -> en]
+    - an error raising [raise err]
+    - the application of a primitive over a data structure
+      -- [!e]
+      -- [e1 := e2]
+      -- [e1.(e2)]
+      -- [e1.(e2) <- e3]
+      -- [array_length e]
+      -- [list_hd e]
+      -- [list_tl e]
+      -- [array_map_by n x e]
+      -- [list_fold_left f e_init e]
+      -- [array_fold_left f e_init e] *)
+
   and exp = exp_desc * decoration
   and exp_desc =
   | Var of ident
   | Const of const
-  | Prim of exp prim
+  | Unop of unop * exp
+  | Binop of binop * exp * exp
   | If of (exp * exp * exp)
-  | Case of (exp * (const * exp) list * exp)  
   | App of (ident * exp list)
   | LetRec of ((ident * (ident * decoration) list) * exp) list * exp
   | LetFun of ((ident * (ident * decoration) list) * exp) * exp
@@ -56,6 +97,7 @@ module Make(D : sig type decoration end) = struct
 
 end
 
+(** [TMACLE] : typed AST of the Macle Language *)
 
 module TMACLE = struct
   include Make(struct type decoration = ty end)
@@ -116,7 +158,7 @@ module TMACLE = struct
     App(x,args),ty
 
   let mk_binop ~ty op e1 e2 = 
-    Prim(Atom.Binop op,[e1;e2]),ty
+    Binop (op,e1,e2),ty
 
   let mk_int n = 
     Const (Int n),t_int
@@ -151,6 +193,9 @@ module TMACLE = struct
       CamlPrim(ListTl e),t
     | _ -> assert false
 end
+
+(** [TMACLE] : AST of the Macle Language annotated 
+    with locations in the source program *)
 
 module MACLE = Make(struct type decoration = loc end)
 
@@ -197,66 +242,3 @@ let val_of_constructor x =
   (n,tys)
 
 
-
-(* struct
-
-  type circuit = {
-    x:ident; 
-    xs:ident list; 
-    e:exp;
-    loc:loc
-  }
-
-  and exp = exp_desc located
-  
-  and exp_desc =
-  | Var of ident
-  | Const of const
-  | Prim of exp prim
-  | If of (exp * exp * exp)
-  | Case of (exp * (const * exp) list * exp)  
-  | App of (ident * exp list)
-  | LetRec of ((ident * ident list) * exp) list * exp
-  | LetFun of ((ident * ident list) * exp) * exp
-  | Let of (ident * exp) list * exp
-  | Match of exp * case list
-  | CamlPrim of interop
-  
-  and case = constr * ident list * exp
-
-  and interop =
-  | RefAccess of exp
-  | RefAssign of  { r:exp ; e:exp }
-  | ArrayAccess of { arr:exp ; idx:exp }
-  | ArrayAssign of { arr:exp ; idx:exp ; e:exp}
-  | ArrayLength of exp
-  | ListHd of exp
-  | ListTl of exp
-  | ArrayMapBy of int * ident * exp
-  | ArrayFoldLeft of ident * exp * exp
-  | ListFoldLeft of ident * exp * exp
-
-end
-*)
-(** [mk_match loc e e1 x xs e2] builds the expression
-    (match e with [] -> e1 | x::xs -> e2) expended :
-
-  ~ (let #y = e in
-     if #y = [] then e1 
-     else let x = list_hd #y
-          and xs = list_tl #y in
-          e2)
-*)
-(* let mk_match loc e e1 x xs e2 =
-  let open MACLE in
-  let mkl = mk_loc loc in
-  let y = Gensym.gensym "y" in
-  let var_y = mkl @@ Var y in
-  mkl @@ Let([((y,loc),e)],
-             mkl @@ If(mkl @@ Prim(Binop Eq,
-                                   [ var_y;
-                                     mkl @@ Const EmptyList ]),
-                       e1,
-                       mkl @@ Let([(x,mkl @@ CamlPrim (ListHd var_y));
-                                   (xs,mkl @@ CamlPrim (ListTl var_y))],
-                                   e2))) *)

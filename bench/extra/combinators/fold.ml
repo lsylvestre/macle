@@ -1,20 +1,20 @@
-circuit list_sum_twice(l) =
-  let rec plus(a,b) =  
-      if b <= 0 then a else plus(a+1,b-1) in
-  let plus_twice(a,b) =
-     let x = plus(a,b)
-     and y = plus(a,b) in
+circuit list_sum_twice l =
+  let rec plus a b =  
+      if b <= 0 then a else plus (a+1) (b-1) in
+  let plus_twice a b =
+     let x = plus a b
+     and y = plus a b in
      x + y in 
-  list_fold_left(plus_twice,0,l) ;;
+  list_fold_left plus_twice 0 l ;;
 
-circuit array_sum_twice(arr) =
-  let rec plus(a,b) =  
-      if b <= 0 then a else plus(a+1,b-1) in
-  let plus_twice(a,b) =
-     let x = plus(a,b)
-     and y = plus(a,b) in
+circuit array_sum_twice arr =
+  let rec plus a b =  
+      if b <= 0 then a else plus (a+1) (b-1) in
+  let plus_twice a b =
+     let x = plus a b
+     and y = plus a b in
      x + y in 
-  array_fold_left(plus_twice,0,arr)
+  array_fold_left plus_twice 0 arr
 
 
 ;;;

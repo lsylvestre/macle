@@ -1,6 +1,5 @@
 %{
     open Loc
-    open Kast
     open Ast
     open Types
 %}
@@ -28,7 +27,7 @@
 
 %nonassoc IN
 %nonassoc SEMICOL
-%nonassoc ELSE OTHERWISE
+%nonassoc ELSE
 %nonassoc LEFT_ARROW
 %left COLONEQ
 %right PIPE_PIPE 
@@ -38,7 +37,7 @@
 %left TIMES
 %nonassoc NOT UMINUS
 %nonassoc ARRAY_LENGTH LIST_HD LIST_TL 
-%nonassoc LPAREN RPAREN BANG
+%nonassoc /* LPAREN RPAREN*/ BANG
 
 %start <Ast.MACLE.circuit list * string> platform_macle
 
@@ -53,15 +52,10 @@ case(exp_cond,const,exp):
   PIPE? OTHERWISE e=exp   { (a,handlers,e) }
 
 constant:
-| b=BOOL_LIT               { Atom.Bool b }
-| v=std_logic              { Atom.Std_logic v }
-| n=INT_LIT                { Atom.Int n }       
-| LPAREN RPAREN            { Atom.Unit }
+| b=BOOL_LIT               { Bool b }
+| n=INT_LIT                { Int n }       
+| LPAREN RPAREN            { Unit }
 | LBRACKET RBRACKET        { EmptyList }
-
-call_pstate_flat(E):
-| q=ident LPAREN es=separated_nonempty_list(COMMA,E) RPAREN { (q,es) }
-| q=ident LPAREN RPAREN { (q,[]) }
 
 macle_let_rec:
 | LET REC bs=separated_nonempty_list(AND,fun_bindings)
@@ -71,21 +65,37 @@ macle_let_fun:
 | LET b=fun_bindings IN e=mexp { MACLE.LetFun(b,e) }
 
 fun_bindings:
-| x=ident LPAREN xs=separated_list(COMMA,located(ident_or_wildcard)) RPAREN 
+| x=ident xs=located(ident_or_wildcard)+
   EQ e=mexp { ((x,xs),e) }
 
 located(X):
 | x=X { (x,$loc) }
 
-/* expressions in Macle */
+/* Macle expressions */
 mexp:
+| x=ident es=exp+ { mk_loc $loc @@ MACLE.App (x,es) }
+/*| MINUS a=exp %prec UMINUS      
+                  { mk_loc $loc @@ 
+                    MACLE.Prim (Atom.mk_unop Atom.Uminus a) }*/
+| LIST_FOLD_LEFT q=ident init=exp el=exp
+  { mk_loc $loc @@ MACLE.CamlPrim(ListFoldLeft(q,init,el)) }
+
+| ARRAY_FOLD_LEFT q=ident init=exp earr=exp
+  { mk_loc $loc @@ MACLE.CamlPrim(ArrayFoldLeft(q,init,earr)) }
+
+| ARRAY_MAP n=INT_LIT q=ident earr=exp
+  { mk_loc $loc @@ MACLE.CamlPrim(ArrayMapBy(n,q,earr)) }
+
+| RAISE LPAREN e=exc RPAREN { mk_loc $loc @@ MACLE.Raise e }
+
+| p=prim          { mk_loc $loc @@ p }
+| e=exp { e }
+
+exp:
 | LPAREN e=mexp RPAREN            { e }
 | x=ident                         { mk_loc $loc @@ MACLE.Var x }
 | c=constant                      { mk_loc $loc @@ MACLE.Const c }
 | p=conditionnelle(mexp,mexp)     { mk_loc $loc @@ MACLE.If p }
-| p=case(mexp,constant,mexp)      { mk_loc $loc @@ MACLE.Case p } 
-| p=prim(mexp)                    { mk_loc $loc @@ MACLE.Prim p }
-| app=call_pstate_flat(mexp)      { mk_loc $loc @@ MACLE.App app }
 | LET bs=separated_nonempty_list(AND,
       separated_pair(located(ident_or_wildcard),EQ,mexp))
   IN e=mexp 
@@ -96,27 +106,12 @@ mexp:
 | e=macle_let_rec { mk_loc $loc @@ e }
 | e=macle_let_fun { mk_loc $loc @@ e}
 | e=caml_prim  { mk_loc $loc @@ MACLE.CamlPrim e }
-| e1=mexp SEMICOL e2=mexp 
+/*| e1=mexp SEMICOL e2=mexp 
   { let x = Gensym.gensym "ignore" in 
-    mk_loc $loc @@ MACLE.Let([((x,$loc),e1)],e2) }
+    mk_loc $loc @@ MACLE.Let([((x,$loc),e1)],e2) }*/
 
-| LIST_FOLD_LEFT LPAREN q=ident COMMA init=mexp COMMA el=mexp RPAREN
-  { mk_loc $loc @@ MACLE.CamlPrim(ListFoldLeft(q,init,el)) }
-
-| ARRAY_FOLD_LEFT LPAREN q=ident COMMA init=mexp COMMA earr=mexp RPAREN
-  { mk_loc $loc @@ MACLE.CamlPrim(ArrayFoldLeft(q,init,earr)) }
-
-| ARRAY_MAP LPAREN n=INT_LIT COMMA q=ident COMMA earr=mexp RPAREN
-  { mk_loc $loc @@ MACLE.CamlPrim(ArrayMapBy(n,q,earr)) }
-
-/*| MATCH e=mexp WITH PIPE? LBRACKET RBRACKET RIGHT_ARROW e1=mexp 
-  PIPE x=ident COLCOL xs=ident RIGHT_ARROW e2=mexp
-    { mk_match $loc e e1 x xs e2 }
-*/
 | MATCH e=mexp WITH PIPE? cases=separated_list(PIPE,match_case)
     { mk_loc $loc @@ MACLE.Match(e,cases) }
-
-| RAISE LPAREN e=exc RPAREN { mk_loc $loc @@ MACLE.Raise e }
 
 exc:
 | LPAREN e=exc RPAREN      { e }
@@ -142,21 +137,26 @@ ident_or_wildcard_option:
 | WILDCARD { None } 
 
 platform(p): 
-| cs=separated_nonempty_list(SEMI_SEMI,p) s=QUOTE EOF    { (cs,s) }
-| cs=separated_nonempty_list(SEMI_SEMI,p) platform_error { assert false }
+| cs=separated_nonempty_list(SEMI_SEMI,p) s=quote        { (cs,s) }
 
-platform_error:
+quote:
+| s=QUOTE EOF { s }
 | error { syntax_error ~msg:"token \";;;;;;;\" expected.\nA program is of the form:\n  [circuit x(x1,... xn) = e1 ;;\n   ...\n   circuit x(x1,... xn) = en\n   ;;[;]^+\n   <OCaml program>.]" $loc }
 
 /* Macle circuits */
 mcircuit:
-| CIRCUIT x=IDENT LPAREN xs=separated_list(COMMA,located(ident)) RPAREN 
+| CIRCUIT x=IDENT xs=arguments
   EQ e=mexp { {x;xs;e;decoration=$loc} }
-| CIRCUIT REC x=IDENT LPAREN xs=separated_list(COMMA,located(ident)) RPAREN EQ e=mexp 
+| CIRCUIT REC x=IDENT xs=arguments EQ e=mexp 
   { let q = x in
     let e = MACLE.LetRec([(q,xs),e],
                         (App(q,List.map (fun (x,loc) -> MACLE.Var x,loc) xs),$loc)),$loc in
-    {x;xs;e;decoration=$loc} }
+    MACLE.{x;xs;e;decoration=$loc} }
+
+arguments:
+| LPAREN xs=separated_list(COMMA,located(ident)) RPAREN
+| xs=located(ident)+ { xs }
+| LPAREN RPAREN { let x = Gensym.gensym "unit" in [ x,$loc ] }
 
 platform_macle: typdef* c=platform(mcircuit) { c }
 
@@ -185,9 +185,8 @@ typ:
 
 caml_prim:
 | BANG e=mexp             { MACLE.RefAccess e }
-| RPAREN r=mexp LPAREN COLONEQ e=mexp 
-                            { MACLE.RefAssign{r;e} }
-| x=ident COLONEQ e=mexp  { MACLE.RefAssign{r=(mk_loc $loc @@ MACLE.Var x);e} } 
+| r=exp COLONEQ e=mexp    { MACLE.RefAssign{r;e} }   /* idéalement, r=mexp */
+| x=ident COLONEQ e=mexp  { MACLE.RefAssign{r=(mk_loc $loc @@ MACLE.Var x);e} }
 | LPAREN arr=mexp RPAREN DOT 
   LPAREN idx=mexp RPAREN  { MACLE.ArrayAccess{arr;idx} }
 | x=ident DOT 
@@ -206,35 +205,32 @@ caml_prim:
 
 /*  ******************* Atoms and instructions ******************* */
 
-prim(E): 
-| a1=E c=binop a2=E             { Atom.mk_binop c a1 a2 }
-| NOT a=E                       { Atom.mk_unop Atom.Not a  }
-| MINUS a=E %prec UMINUS        { Atom.mk_unop Atom.Uminus a }
-| a=E MOD n=INT_LIT 
+prim: 
+| e1=mexp c=binop e2=mexp       { MACLE.Binop(c,e1,e2) }
+| NOT e=exp                     { MACLE.Unop(Not,e)  }
+| e=mexp MOD n=INT_LIT 
   { match n with
-    | 2 -> Atom.mk_unop Atom.Mod2 a
+    | 2 -> MACLE.Unop(Mod2,e)
     | _ -> syntax_error ~msg:"modulo 2 expected" $loc }
-| a=E DIV n=INT_LIT 
+| e=mexp DIV n=INT_LIT 
   { match n with
-    | 2 -> Atom.mk_unop Atom.DivBy2 a
+    | 2 -> MACLE.Unop(DivBy2,e)
     | _ -> syntax_error ~msg:"division by 2 expected" $loc }
 
 std_logic:
-| ZERO { Atom.Zero }
-| ONE  { Atom.One }
+| ZERO { Zero }
+| ONE  { One }
 
 %inline binop:
-| PLUS { Atom.Add }
-| MINUS { Atom.Sub }
-| TIMES { Atom.Mul }
-| LT { Atom.Lt }
-| LE { Atom.Le }
-| GT { Atom.Gt }
-| GE { Atom.Ge }
-| EQ { Atom.Eq }
-| NEQ { Atom.Neq }
-| LAND { Atom.And }
-| PIPE_PIPE { Atom.Or }
+| PLUS { Add }
+| MINUS { Sub }
+| TIMES { Mul }
+| LT { Lt }
+| LE { Le }
+| GT { Gt }
+| GE { Ge }
+| EQ { Eq }
+| NEQ { Neq }
 
 ident:
 | x=IDENT { x }

@@ -1,4 +1,4 @@
-circuit f (x) = 
+circuit f x = 
   raise (Failure "foo") 
 
 ;;;;
