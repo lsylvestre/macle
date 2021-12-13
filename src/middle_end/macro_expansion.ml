@@ -167,11 +167,14 @@ let rec expand ~safe ((desc,ty) as e) =
     | ArrayLength e -> 
         CamlPrim(ArrayLength(expand ~safe e)),ty
     | ArrayFoldLeft(q,init,e) ->
+        let init' = expand ~safe init in
+        let e' = expand ~safe e in
         expand ~safe:false @@
-        mk_array_fold_left q init e
+        mk_array_fold_left q init' e'
     | ArrayMapBy(n,q,e) -> 
+        let e' = expand ~safe e in
         expand ~safe:false @@
-        mk_array_map n q e
+        mk_array_map n q e'
     )
 
 
