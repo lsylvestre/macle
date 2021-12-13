@@ -11,22 +11,27 @@ A Tool dedicated to FPGA programming, directly usable in combination with [O2B](
 
 ```
 pi ::= ci_1 ;; ... ci_n ;;;[;]^* P   (where P is an OCaml program)
-ci ::= circuit x(x1,... xn) = e 
-e ::= c | x | x(e1,... en) | let rec x(x1,...xn) = e and ... in e
+ci ::= circuit f x1 ... xn = e 
+e ::= c | x | f e1 ... en | let rec f x1 ... xn = e and ... in e
     | if e1 then e2 else e3
     | let x = e and ... in e
     | <unop> e
     | e1 <binop> e2
+    | match e with h1 | ... hn
+
+h ::= C(p1, ... pn) -> e
+
+p ::= _ | x
 ```
 - exemple (*bench/simples/fact.ml*) 
 
 ```ocaml
 (* Macle circuit *)
 
-circuit fact(n) = 
-  let rec aux(acc,n) = 
-    if n <= 0 then acc else aux(acc*n,n-1) in 
-  aux(1,n)
+circuit fact n = 
+  let rec aux acc n = 
+    if n <= 0 then acc else aux (acc*n) (n-1) in 
+  aux 1 n
 
 ;;; 
 

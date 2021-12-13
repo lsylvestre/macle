@@ -1,4 +1,4 @@
-circuit add(x) =
+circuit add x =
   match x with y,z -> y + z
 
 ;;;;

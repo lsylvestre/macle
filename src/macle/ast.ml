@@ -225,8 +225,11 @@ in
 
 let env_constructor : (string * (string * int * ty list)) list ref =
   let v = Types.newvar () in
+  let w1 = Types.newvar () in
+  let w2 = Types.newvar () in
  ref (["[]",("list",0,[]);
-       "::",("list",0,[v;list_ v])])
+       "::",("list",0,[v;list_ v]);
+       ",",("list",0,[w1;w2])])
 
 let add_constructor x ty n tys = 
   env_constructor := (x,(ty,n,tys))::!env_constructor
