@@ -76,11 +76,11 @@ let mk_array_map n q e =
      
 
 
-let rec expand ((desc,ty) as e) =
+let rec expand ~safe ((desc,ty) as e) =
   match desc with
   | (Var _ | Const _) -> e
   | Unop(p,e) ->
-      Unop(p,expand e),ty
+      Unop(p,expand ~safe e),ty
   | Binop(Or,e1,e2) ->
      (* lazy [or] *)
      mk_if e1 (mk_bool true) e2
@@ -88,43 +88,50 @@ let rec expand ((desc,ty) as e) =
      (* lazy [and] *)
      mk_if e1 e2 (mk_bool false)
   | Binop(p,e1,e2) ->
-      Binop(p,expand e1, expand e2),ty
+      Binop(p,expand ~safe e1, expand ~safe e2),ty
   | If(e1,e2,e3) ->
-      let e1' = expand e1 in
-      let e2' = expand e2 in
-      let e3' = expand e3 in
+      let e1' = expand ~safe e1 in
+      let e2' = expand ~safe e2 in
+      let e3' = expand ~safe e3 in
       mk_if e1' e2' e3'
   | Let(bs,e) ->
-      let bs' = List.map (fun (x,e) -> (x,expand e)) bs in 
-      let e' = expand e in
+      let bs' = List.map (fun (x,e) -> (x,expand ~safe e)) bs in 
+      let e' = expand ~safe e in
       mk_let bs' e'
   | LetFun((d,e1),e2) ->
-      LetFun((d,expand e1),expand e2),ty
+      LetFun((d,expand ~safe e1),expand ~safe e2),ty
   | LetRec(bs,e) ->
-      mk_letrec (List.map (fun (d,e) -> (d,expand e)) bs) (expand e)
+      mk_letrec (List.map (fun (d,e) -> (d,expand ~safe e)) bs) (expand ~safe e)
   | App(x,es) ->
-      mk_app ~ty x (List.map expand es)
+      mk_app ~ty x (List.map (expand ~safe) es)
   | Match(e,cases) -> 
-      let cases' = List.map (fun (c,xs,e) -> c,xs,expand e) cases in
-      Match(expand e,cases'),ty
+      let cases' = List.map (fun (c,xs,e) -> c,xs,expand ~safe e) cases in
+      Match(expand ~safe e,cases'),ty
   | Raise _ -> 
       e
   | CamlPrim r -> 
     (match r with
     | RefAccess e -> 
-        CamlPrim(RefAccess(expand e)),ty
+        CamlPrim(RefAccess(expand ~safe e)),ty
     | RefAssign{r;e} -> 
         CamlPrim(RefAssign{
-                  r = expand r ;
-                  e = expand e
+                  r = expand ~safe r ;
+                  e = expand ~safe e
                 }),ty
     | ArrayAccess{arr;idx} ->
+        if not safe then 
+          CamlPrim (
+            ArrayAccess {
+              arr = expand ~safe arr; 
+              idx = expand ~safe idx
+            }),ty
+        else
         let x_arr = gensym "x" in
         let y_idx = gensym "y" in
         let z = gensym "z" in
         let err = Raise (Exception_Invalid_arg "Index out of bounds"),ty in
-        mk_let [(x_arr,ty_of arr),expand arr;
-                (y_idx,t_int),expand idx] @@
+        mk_let [(x_arr,ty_of arr),expand ~safe arr;
+                (y_idx,t_int),expand ~safe idx] @@
         mk_if (mk_binop ~ty:t_bool Lt (Var y_idx,t_int) (mk_int 0)) err @@
         mk_let1 (z,t_int) (mk_array_length (Var x_arr, ty_of arr)) @@
         mk_if (mk_binop ~ty:t_bool Ge (Var y_idx,t_int) (Var z,t_int)) err 
@@ -134,12 +141,20 @@ let rec expand ((desc,ty) as e) =
                   idx = (Var y_idx,t_int)
                 }),ty)
     | ArrayAssign{arr;idx;e} ->
+        if not safe then 
+          CamlPrim (
+            ArrayAssign {
+              arr = expand ~safe arr; 
+              idx = expand ~safe idx;
+              e = expand ~safe e
+            }),ty
+        else
         let x_arr = gensym "x" in
         let y_idx = gensym "y" in
         let z = gensym "z" in
         let err = Raise (Exception_Invalid_arg "Index out of bounds"),ty in
-        mk_let [(x_arr,ty_of arr),expand arr;
-                (y_idx,t_int),expand idx] @@
+        mk_let [(x_arr,ty_of arr),expand ~safe arr;
+                (y_idx,t_int),expand ~safe idx] @@
         mk_if (mk_binop ~ty:t_bool Lt (Var y_idx,t_int) (mk_int 0)) err @@
         mk_let1 (z,t_int) (mk_array_length (Var x_arr, ty_of arr)) @@
         mk_if (mk_binop ~ty:t_bool Ge (Var y_idx,t_int) (Var z,t_int)) err
@@ -147,18 +162,18 @@ let rec expand ((desc,ty) as e) =
         (CamlPrim(ArrayAssign{ 
                   arr = (Var x_arr,ty_of arr) ;
                   idx = (Var y_idx,t_int) ;
-                  e = expand e
+                  e = expand ~safe e
                 }),ty)
     | ArrayLength e -> 
-        CamlPrim(ArrayLength(expand e)),ty
+        CamlPrim(ArrayLength(expand ~safe e)),ty
     | ArrayFoldLeft(q,init,e) ->
-        expand @@
+        expand ~safe:false @@
         mk_array_fold_left q init e
     | ArrayMapBy(n,q,e) -> 
-        expand @@
+        expand ~safe:false @@
         mk_array_map n q e
     )
 
 
 let expand_circuit (c : TMACLE.circuit) : TMACLE.circuit = 
-  {c with e = expand c.e}
+  {c with e = expand ~safe:true c.e}
