@@ -8,16 +8,14 @@ open Gensym
    - [or e1 e2] into [if e1 then true else e2]
    - [and e1 e2] into [if e1 then e2 else false]
    - array/list combinators
-   - wrap array_get and array_set
-     into a safe error handling to manage index out of bounds 
-
+   - flat_array map/reduce/update
 *)
 
-let mk_array_fold_left q init earr =
+let mk_array_fold_left f init earr =
   let tarr_ty = ty_of earr in
   let ty = array_ty tarr_ty in
   let tyr = ty_of init in
-  let q' = gensym "aux" in
+  let f' = gensym "aux" in
   let y = gensym "arr" in
   let n = gensym "size" in
   let i = gensym "idx" in
@@ -28,19 +26,19 @@ let mk_array_fold_left q init earr =
   let var_y = Var y,tarr_ty in
   mk_let1 (y,tarr_ty) earr @@
   mk_let1 (n,t_int) (mk_array_length var_y) @@
-  mk_letrec1 q' [(acc,tyr);(i,t_int)] ( 
+  mk_letrec1 f' [(acc,tyr);(i,t_int)] ( 
       mk_if  (mk_binop ~ty:t_bool Ge (Var i,t_int) (Var n,t_int)) (Var acc,tyr) @@
       mk_let1 (x,ty) (mk_array_access var_y (Var i,t_int)) @@
-      mk_let1 (acc2,tyr) (mk_app ~ty:tyr q [Var acc,tyr;Var x,ty]) @@
-      mk_app ~ty:tyr q' [Var acc2,tyr; mk_binop ~ty:t_int Add (Var i,t_int) (mk_int 1)] 
+      mk_let1 (acc2,tyr) (mk_app ~ty:tyr f [Var acc,tyr;Var x,ty]) @@
+      mk_app ~ty:tyr f' [Var acc2,tyr; mk_binop ~ty:t_int Add (Var i,t_int) (mk_int 1)] 
     ) @@
-    mk_app ~ty:tyr q' [init; mk_int 0]
+    mk_app ~ty:tyr f' [init; mk_int 0]
 
 
-let mk_array_map n q e =
+let mk_array_map n f e =
   let ty = ty_of e in
   let ty_elem = array_ty ty in
-  let q' = gensym "aux" in
+  let f' = gensym "aux" in
   let y = gensym "arr" in
   let size = gensym "size" in
   let i = gensym "idx" in
@@ -51,13 +49,13 @@ let mk_array_map n q e =
   let var_size = Var size,t_int in
   mk_let1 (y,ty) e @@
   mk_let1 (size,t_int) (mk_array_length var_y) @@
-  mk_letrec1 q' [(i,t_int)]
+  mk_letrec1 f' [(i,t_int)]
   (mk_if (mk_binop ~ty:t_bool Ge var_i var_size) mk_unit @@
    mk_if (mk_binop ~ty:t_bool Gt var_i (mk_binop ~ty:t_int Sub var_size (mk_int n)))  
       (mk_let1  (elem,ty_elem) (mk_array_access var_y var_i) @@
        mk_seq
-              (mk_array_assign var_y var_i (mk_app ~ty:ty_elem q [Var elem,ty_elem]))
-              (mk_app ~ty:t_unit q' [mk_binop ~ty:t_int Add var_i (mk_int 1)])) @@
+              (mk_array_assign var_y var_i (mk_app ~ty:ty_elem f [Var elem,ty_elem]))
+              (mk_app ~ty:t_unit f' [mk_binop ~ty:t_int Add var_i (mk_int 1)])) @@
 
         (let bs = List.init n (fun k -> 
                     ((elem^string_of_int k,ty_elem),
@@ -67,116 +65,168 @@ let mk_array_map n q e =
         mk_let_cascad bs @@
         mk_let 
           (List.init n (fun k -> (elem^string_of_int k,ty_elem),
-                           mk_app ~ty q [Var(elem^string_of_int k),ty_elem])) @@
+                           mk_app ~ty f [Var(elem^string_of_int k),ty_elem])) @@
         mk_seqs (List.init n (fun k ->
                       (mk_array_assign var_y (mk_binop ~ty:t_int Add var_i (mk_int k)) 
                           (Var (elem^string_of_int k),ty_elem)))) @@
-        (mk_app ~ty:t_unit q' [mk_binop ~ty:t_int Add var_i (mk_int n)])))
-  (mk_app ~ty:t_unit q' [mk_int 0])
+        (mk_app ~ty:t_unit f' [mk_binop ~ty:t_int Add var_i (mk_int n)])))
+  (mk_app ~ty:t_unit f' [mk_int 0])
+
+
+  (* [mk_array_iter_by n f e] is expanded into :
+
+     [let y = e in
+      let size = Array.length y in
+      let rec aux i = 
+        if size - i < n then raise fail else
+        if i < size then f (copy x i n);aux (i+n) else
+        ()] 
+  *)
+let mk_array_iter_by n f e =
+  let ty = ty_of e in
+  let tye = array_ty ty in
+  let y = gensym "arr" in
+  let i = gensym "idx" in
+  let size = gensym "size" in
+  let f' = gensym "aux" in
+  let var_y = (Var y,ty) in
+  let var_i = Var i,t_int in
+  let var_size = Var size,t_int in
+  mk_let1 (y,ty) e @@
+  mk_let1 (size,t_int) (mk_array_length var_y) @@
+  mk_letrec1 f' [i,t_int]
+  (mk_if (mk_binop ~ty:t_bool Lt (mk_binop ~ty:t_bool Sub var_size var_i) (mk_int n))
+      (Raise (Exception_Invalid_arg "Index out of bounds"),t_unit) @@
+      (mk_seq (mk_app ~ty:t_unit f [FlatArrayOp (ArraySub(var_y,var_i,n)),flat_array_ tye (TSize n)])
+              (mk_if (mk_binop ~ty:t_bool Lt var_i (mk_binop ~ty:t_int Sub var_size (mk_int n))) 
+                     (mk_app ~ty:t_unit f' [mk_binop ~ty:t_int Add var_i (mk_int n)])
+                     mk_unit)))
+  (mk_app ~ty:t_unit f' [mk_int 0])
+
+
+  (* [mk_array_iter_by n f e] is expanded into :
+
+    [let y = e in
+      let size = Array.length y in
+      let rec aux i acc = 
+        if size - i < n then raise fail else
+        if i < size then aux (i+n) (f acc (copy x i n)) else
+        acc]
+  *)
+
+let mk_array_reduce_by n f init e =
+  let tye = ty_of e in
+  let ty_elem = array_ty tye in
+  let ty_acc = ty_of init in
+  let y = gensym "arr" in
+  let acc = gensym "acc" in
+  let i = gensym "idx" in
+  let size = gensym "size" in
+  let f' = gensym "aux" in
+  let var_y = (Var y,tye) in
+  let var_i = Var i,t_int in
+  let var_acc = Var acc,ty_acc in
+  let var_size = Var size,t_int in
+  (* ajouter un test [size % n] au début avec lancé d'exception *)
+  mk_let1 (y,tye) e @@
+  mk_let1 (size,t_int) (mk_array_length var_y) @@
+  mk_letrec1 f' [(i,t_int);(acc,ty_acc)]
+  (* (mk_if (Macro(LazyAnd(mk_binop ~ty:t_bool Lt (mk_binop ~ty:t_bool Sub var_size var_i) (mk_int n),
+                        mk_binop ~ty:t_bool Neq var_size var_i)),t_bool)
+      (Raise (Exception_Invalid_arg "Index out of bounds"),t_unit) @@ *)
+      (mk_if (mk_binop ~ty:t_bool Le var_i (mk_binop ~ty:t_int Sub var_size (mk_int n))) 
+             (mk_app ~ty:t_unit f' [mk_binop ~ty:t_int Add var_i (mk_int n);
+                                    (mk_app ~ty:t_unit f [var_acc; FlatArrayOp (ArraySub(var_y,var_i,n)),flat_array_ ty_elem (TSize n)])
+                                   ])
+             var_acc) (* ) *)
+  (mk_app ~ty:ty_acc f' [mk_int 0;init])
+
+
+
+let mk_flat_array_update arr idx e =
+  let n = flat_array_size (ty_of arr) in
+  let ty_elem = ty_of e in
+  let ty_arr = ty_of arr in
+  let x = gensym "x" in
+  mk_let1 (x,ty_arr) e @@
+  let es =  
+   (match idx with 
+   | Const (Int n),_ -> 
+     List.init n (fun i -> 
+                 if i = n then e else 
+                 FlatArrayOp (FlatGet{e=(Var x,ty_arr);idx=mk_int i}),ty_elem)
+   | _ -> 
+      List.init n (fun i -> 
+                 mk_if (mk_binop ~ty:t_int Eq (mk_int i) idx) e 
+                 (FlatArrayOp (FlatGet{e=(Var x,ty_arr);idx=mk_int i}),ty_elem))
+
+  ) in
+  FlatArrayOp(FlatMake es),ty_arr
+
+let mk_array_sub e idx n =
+    let y = gensym "arr" in
+    let i = gensym "idx" in
+    let tye = ty_of e in
+    let var_y = (Var y,tye) in
+    let var_i = Var i,t_int in
+    let ty_elem = array_ty tye in
+    mk_let [(y,tye),e;(i,t_int),idx] @@
+    let es = List.init n (fun k -> 
+        mk_array_access var_y @@ 
+        mk_binop ~ty:t_int Add var_i (mk_int k)) 
+    in
+    let xs = List.map (fun _ -> gensym "x",ty_elem) es in
+    mk_let (List.combine xs es) @@
+    (FlatArrayOp(FlatMake(List.map (fun (x,t) -> Var x,t) xs)),flat_array_ ty_elem (TSize n))
+
+let rec expand ~safe e =
+
+  let mapper ~default (env:unit) ((desc,ty) as e) =
+    default env @@
+    match desc with
+    (* | FlatArrayOp(ArraySub(e,idx,n)) -> 
+        mk_array_sub e idx n*)
+    | Macro c ->
+       (match c with
+        | LazyOr(e1,e2) ->
+           mk_if e1 (mk_bool true) e2
+        
+        | LazyAnd(e1,e2) ->
+           mk_if e1 e2 (mk_bool false)
+       
+        | Map(f,es) ->  (* c'est un plug ? cf macle2vsml   (à factoriser) *)
+           let xs = List.map (fun (_,t) -> gensym "x",t) es in
+           let ty_elem = flat_array_ty ty in 
+           FlatArrayOp(Map((xs,mk_app ~ty:ty_elem f (List.map (fun (x,t) -> Var x,t) xs)),es)),ty
+           (* mk_flat_array_map f es ty*)
+      
+        | Reduce(f,init,e) -> 
+           let tye = ty_of e in
+           let acc = gensym "acc" in
+           let x = gensym "x" in
+           FlatArrayOp(Reduce(((acc,ty),(x,tye),mk_app ~ty f [Var acc,ty;Var x,tye]),init,e)),ty
+          (* mk_flat_array_reduce f init e
+*)
+        | ArrayUpdate{arr;idx;e} -> 
+           mk_flat_array_update arr idx e
+
+        | OCamlArrayReduceBy(n,f,init,e) ->
+           mk_array_reduce_by n f init e
+
+        | OCamlArrayIterBy(n,f,e) ->
+           mk_array_iter_by n f e
+
+        | OCamlArrayMapBy(n,f,e) -> 
+           mk_array_map n f e
+
+
+        | OCamlArrayFoldLeft(f,init,e) ->
+           mk_array_fold_left f init e)
+  | _ -> 
+     e
+  in
+  Ast_mapper.map mapper () e
+
      
-
-
-let rec expand ~safe ((desc,ty) as e) =
-  match desc with
-  | (Var _ | Const _) -> e
-  | Unop(p,e) ->
-      Unop(p,expand ~safe e),ty
-  | Binop(Or,e1,e2) ->
-     (* lazy [or] *)
-     mk_if e1 (mk_bool true) e2
-  | Binop(And,e1,e2) ->
-     (* lazy [and] *)
-     mk_if e1 e2 (mk_bool false)
-  | Binop(p,e1,e2) ->
-      Binop(p,expand ~safe e1, expand ~safe e2),ty
-  | If(e1,e2,e3) ->
-      let e1' = expand ~safe e1 in
-      let e2' = expand ~safe e2 in
-      let e3' = expand ~safe e3 in
-      mk_if e1' e2' e3'
-  | Let(bs,e) ->
-      let bs' = List.map (fun (x,e) -> (x,expand ~safe e)) bs in 
-      let e' = expand ~safe e in
-      mk_let bs' e'
-  | LetFun((d,e1),e2) ->
-      LetFun((d,expand ~safe e1),expand ~safe e2),ty
-  | LetRec(bs,e) ->
-      mk_letrec (List.map (fun (d,e) -> (d,expand ~safe e)) bs) (expand ~safe e)
-  | App(x,es) ->
-      mk_app ~ty x (List.map (expand ~safe) es)
-  | Match(e,cases) -> 
-      let cases' = List.map (fun (c,xs,e) -> c,xs,expand ~safe e) cases in
-      Match(expand ~safe e,cases'),ty
-  | Raise _ -> 
-      e
-  | CamlPrim r -> 
-    (match r with
-    | RefAccess e -> 
-        CamlPrim(RefAccess(expand ~safe e)),ty
-    | RefAssign{r;e} -> 
-        CamlPrim(RefAssign{
-                  r = expand ~safe r ;
-                  e = expand ~safe e
-                }),ty
-    | ArrayAccess{arr;idx} ->
-        if not safe then 
-          CamlPrim (
-            ArrayAccess {
-              arr = expand ~safe arr; 
-              idx = expand ~safe idx
-            }),ty
-        else
-        let x_arr = gensym "x" in
-        let y_idx = gensym "y" in
-        let z = gensym "z" in
-        let err = Raise (Exception_Invalid_arg "Index out of bounds"),ty in
-        mk_let [(x_arr,ty_of arr),expand ~safe arr;
-                (y_idx,t_int),expand ~safe idx] @@
-        mk_if (mk_binop ~ty:t_bool Lt (Var y_idx,t_int) (mk_int 0)) err @@
-        mk_let1 (z,t_int) (mk_array_length (Var x_arr, ty_of arr)) @@
-        mk_if (mk_binop ~ty:t_bool Ge (Var y_idx,t_int) (Var z,t_int)) err 
-        @@
-        (CamlPrim(ArrayAccess{ 
-                  arr = (Var x_arr,ty_of arr) ;
-                  idx = (Var y_idx,t_int)
-                }),ty)
-    | ArrayAssign{arr;idx;e} ->
-        if not safe then 
-          CamlPrim (
-            ArrayAssign {
-              arr = expand ~safe arr; 
-              idx = expand ~safe idx;
-              e = expand ~safe e
-            }),ty
-        else
-        let x_arr = gensym "x" in
-        let y_idx = gensym "y" in
-        let z = gensym "z" in
-        let err = Raise (Exception_Invalid_arg "Index out of bounds"),ty in
-        mk_let [(x_arr,ty_of arr),expand ~safe arr;
-                (y_idx,t_int),expand ~safe idx] @@
-        mk_if (mk_binop ~ty:t_bool Lt (Var y_idx,t_int) (mk_int 0)) err @@
-        mk_let1 (z,t_int) (mk_array_length (Var x_arr, ty_of arr)) @@
-        mk_if (mk_binop ~ty:t_bool Ge (Var y_idx,t_int) (Var z,t_int)) err
-        @@
-        (CamlPrim(ArrayAssign{ 
-                  arr = (Var x_arr,ty_of arr) ;
-                  idx = (Var y_idx,t_int) ;
-                  e = expand ~safe e
-                }),ty)
-    | ArrayLength e -> 
-        CamlPrim(ArrayLength(expand ~safe e)),ty
-    | ArrayFoldLeft(q,init,e) ->
-        let init' = expand ~safe init in
-        let e' = expand ~safe e in
-        expand ~safe:false @@
-        mk_array_fold_left q init' e'
-    | ArrayMapBy(n,q,e) -> 
-        let e' = expand ~safe e in
-        expand ~safe:false @@
-        mk_array_map n q e'
-    )
-
-
 let expand_circuit (c : TMACLE.circuit) : TMACLE.circuit = 
   {c with e = expand ~safe:true c.e}

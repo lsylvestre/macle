@@ -17,6 +17,7 @@ INCLUDES=-I src -I src/misc\
 
 OBJS=src/misc/misc.cmo\
      src/misc/monads.cmo\
+     src/misc/err.cmo\
      src/misc/loc.cmo\
      src/misc/gensym.cmo\
      \
@@ -37,17 +38,21 @@ OBJS=src/misc/misc.cmo\
      src/simulation/ast2ocaml.cmo\
      \
      src/macle/typing.cmo\
+     src/macle/ast_mapper.cmo\
      src/macle/check_tailrec.cmo\
+     \
+     src/middle_end/ast_rename.cmo\
      \
      src/translations/macle2vsml.cmo\
      src/translations/vsml2esml.cmo\
      \
-     src/middle_end/ast_rename.cmo\
      src/middle_end/occur.cmo\
      src/middle_end/inline.cmo\
      src/middle_end/macro_expansion.cmo\
+     src/middle_end/safe_array_access.cmo\
      \
      src/optimisation/transparent.cmo\
+     src/optimisation/equations.cmo\
      src/optimisation/propagation.cmo\
      src/optimisation/let_floating.cmo\
      \

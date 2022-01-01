@@ -4,8 +4,39 @@ open TMACLE
 
 let is_atom = Macle2vsml.is_atom
 
+let translate_tconst (tc:tconst) : Esml.Typ.tconst =
+  match tc with
+  | TInt ->
+      Esml.Typ.TInt
+  | TBool ->
+      Esml.Typ.TBool
+  | TUnit ->
+      Esml.Typ.TUnit
+
+let rec translate_type (t:ty) : Esml.Typ.t =
+  match t with
+  | TConst c -> 
+      Esml.Typ.TConst (translate_tconst c)
+  | TVar {contents=V n} -> 
+      Esml.Typ.TVar n
+  | TVar {contents=Ty _} -> 
+      assert false (* canonize [t] before *)
+  | TConstr (x,tys) -> 
+      Esml.Typ.TPtr(x,List.map translate_type tys)
+  | TFun _ -> 
+      assert false (* functional value must be eliminated before *)
+  | TFlatArray (ty,size) ->
+      (match canon size with
+       | TSize n -> 
+           Esml.Typ.TFlatArray (translate_type ty,n)
+       | _ -> assert false (* todo: que faire si la taille n'est pas connue *)
+     )
+  | TSize _ -> 
+      assert false
+
+
 (* convert a VSML atomic expression into an ESML atom *) 
-let rec as_atom (e,_) = 
+let rec as_atom (desc,ty) = 
   let module A = Esml.Atom in
   
   let as_const = function
@@ -31,16 +62,21 @@ let rec as_atom (e,_) =
   | Gt -> A.Gt 
   | Eq -> A.Eq 
   | Neq -> A.Neq
-  | (Or | And) -> 
-      assert false (* lazy or/and already expanded *)
   in
-  match e with
+  match desc with
   | Const c -> A.Const (as_const c)
   | Var x -> A.Var x
   | Unop(p,e) -> 
       A.Prim(A.Unop(as_unop p),[as_atom e])
   | Binop(p,e1,e2) -> 
       A.Prim(A.Binop(as_binop p),[as_atom e1;as_atom e2])
+  | FlatArrayOp c ->
+      (match c with
+      | FlatMake es -> 
+          A.Prim(FlatArrayMake (translate_type ty), List.map as_atom es)
+      | FlatGet{e;idx} -> 
+          A.Prim(FlatArrayGet,[as_atom e;as_atom idx])
+      | _ -> assert false (* already expanded *))
   | _ -> assert false (* not an atom *)
 
 
@@ -82,32 +118,6 @@ let all_rdy ls =
   Atom.mk_fold_binop Atom.And @@
   List.map (fun l -> Atom.(bool_of_std_logic @@ var_ (mk_rdy l))) ls
 
-let translate_tconst (tc:tconst) : Esml.Typ.tconst =
-  match tc with
-  | TInt ->
-      Esml.Typ.TInt
-  | TBool ->
-      Esml.Typ.TBool
-  | TStd_logic ->
-      Esml.Typ.TStd_logic
-  | TUnit ->
-      Esml.Typ.TUnit
-
-let rec translate_type (t:ty) : Esml.Typ.t =
-  match t with
-  | TConst c -> 
-      Esml.Typ.TConst (translate_tconst c)
-  | TVar {contents=V n} -> 
-      Esml.Typ.TVar n
-  | TVar {contents=Ty _} -> 
-      assert false (* canonize [t] before *)
-  | TConstr (x,tys) -> 
-      Esml.Typ.TPtr(x,List.map translate_type tys)
-  | TPtr -> 
-      Esml.Typ.TPtr("%private",[])
-  | TFun _ -> 
-      assert false (* functional value must be eliminated before *)
-
 let rec parallelisable (e,_) =
   match e with
   | Var _ | Const _ | Unop _ | Binop _ -> 
@@ -125,12 +135,24 @@ let rec parallelisable (e,_) =
   | Match(e,cases) ->
       parallelisable e &&
       List.for_all (fun (_,xs,e) -> List.length xs = 0 && parallelisable e) cases
+  | FlatArrayOp c ->
+      (match c with
+       | FlatMake(es) -> 
+           List.for_all parallelisable es
+       | FlatGet{e;idx} ->
+           parallelisable e && parallelisable idx
+       | ArraySub _ ->
+           false
+       | Map _ | Reduce _ -> 
+           assert false)
+  | Macro _ -> 
+      assert false
   | _ -> false
 
 (* *********************************** *)
 open Monads
 module M = struct 
-  type t = Esml.esm list * Esml.transition list * Esml.signature
+  type t = Esml.automaton list * Esml.transition list * Esml.signature
   let empty : t = ([],[],[])
   let concat (l1,l2,l3) (l1',l2',l3') = (l1@l1',l2@l2',l3@l3')
 end
@@ -370,10 +392,61 @@ and c_e env idle result e : Esml.inst m =
                                (as_atom data) (ty_of data) in
             let* () = out ([],ts,[]) in
             ret e'                   
-        | ( ArrayMapBy _ | ArrayFoldLeft _) -> 
-            assert false (* already expanded *)
      )
-  | _ -> assert false (* atoms *)
+  | FlatArrayOp(ArraySub(a,idx,n)) ->
+      assert (is_atom a && is_atom idx);
+      Esml2vhdl.allow_heap_access := true;
+      let q = Gensym.gensym "WaitRd" in
+      (* let data = Gensym.gensym "data" in *)
+      let cnt = Gensym.gensym "cnt" in
+      let open Atom in
+      let ty = array_ty (ty_of a) in
+      let t = (q, (* [address] must not be free in [t] *)
+               (ESML_if(eq_ (var_ "avm_rm_waitrequest") std_zero,
+                  ESML_if(lt_ (var_ cnt) (mk_int n),     
+                               ESML_SetArray((result ,var_ cnt,Prim(FromCaml (translate_type ty),[var_ "avm_rm_readdata"])),
+                                          ESML_do([("avm_rm_address", compute_adress_ (var_ "caml_heap_base") (as_atom a) (add_ (as_atom idx) (add_ (var_ cnt) (mk_int 1))));
+                                                    (cnt,add_ (var_ cnt) (mk_int 1))],
+                                                  ESML_continue q)),
+                                         
+                                ESML_do([("avm_rm_read", std_zero);
+                                                  (* (result, var_ data) *) ],
+                   ESML_continue idle)),
+                  ESML_continue q))) in
+      let s = ESML_do([(result, Prim(Array_create n,[mk_int 0]));
+                       "avm_rm_address", compute_adress_ (var_ "caml_heap_base") (as_atom a) (as_atom idx);
+                       "avm_rm_read",std_one;
+                       cnt, (mk_int 0)],
+                       ESML_continue q) in     
+      let* () = out ([],[t],[(Local,cnt,TConst TInt)]) in
+      ret s
+  (* [array_sub a idx n]
+-- =======================================================
+(Rd,    do data <= (0,0,0, ...)
+        and avm_rm_address <= compute_address(e,idx)
+        and avm_rm_read <= '1'                       
+        and cnt <= 0 in
+        continue WaitRd);
+(WaitRd, if avm_rm_waitrequest = '0' then
+            do data(cnt) <= unsigned(avm_rm_readdata) then
+            (if cnt < n then 
+                do avm_rm_address <= std_logic_vector(raddr+4)
+                and raddr <= raddr+4;
+                and cnt <= cnt+1 then
+                continue WaitRd
+              else
+                do avm_rm_read <= '0' then 
+                continue dst)
+         else 
+           continue WaitRd)
+-- ======================================================
+
+*)  
+  | FlatArrayOp _ -> 
+      assert false
+  | _ ->
+      assert (is_atom e);
+      assert false
 
 let vsml2esml TMACLE.{x;xs;decoration;e} = 
   let (ps,s',fsm) = c_automaton [] ~i:In ~o:Out

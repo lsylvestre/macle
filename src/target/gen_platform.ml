@@ -17,6 +17,22 @@ let mk_package name fmt =
   fprintf fmt "subtype caml_value is std_logic_vector(31 downto 0);@,";
   fprintf fmt "subtype caml_ptr is std_logic_vector(31 downto 0);@,";
   fprintf fmt "subtype caml_int is signed(30 downto 0);@,";
+  
+
+  let array_defs_list = List.rev !array_defs in
+
+  List.iter (fun (name,(sty,n)) ->
+       fprintf fmt "type %s is array (0 to %d) of %s;@," name (n-1) sty) array_defs_list;
+
+List.iter (fun (name,(sty,n)) ->
+       fprintf fmt "@[<v 2>function %s_create(" name;
+        for i = 1 to n-1 do
+          fprintf fmt "x%d," i
+        done;
+        fprintf fmt "x%d" n;
+        fprintf fmt ":%s) return %s;@," sty name
+      ) array_defs_list;
+
 
   fprintf fmt "function bool_to_std_logic(X : boolean) return std_logic;@,";
 
@@ -33,6 +49,31 @@ let mk_package name fmt =
   fprintf fmt "@]@,end;@,";
   fprintf fmt "@[<v 2>package body misc_%s is@," name;
 
+  List.iter (fun (name,(sty,n)) ->
+        fprintf fmt "@[<v 2>function %s_create(" name;
+        for i = 1 to n-1 do
+          fprintf fmt "x%d," i
+        done;
+        fprintf fmt "x%d" n;
+        fprintf fmt ":%s) return %s is@," sty name;
+        fprintf fmt "begin@,";
+        fprintf fmt " return (";
+        for i = 1 to n-1 do
+          fprintf fmt "x%d," i
+        done;
+
+        if n = 1 (* LRM (section 9.3.3 Aggregates) states: 
+                    "Aggregates containing a single element association 
+                     shall always be specified using named association 
+                     in order to distinguish them from parenthesized expressions."
+                     *)
+        then fprintf fmt "0 => ";
+        
+        fprintf fmt "x%d);@," n;
+        fprintf fmt "end;@,";
+     ) array_defs_list;
+
+
   fprintf fmt "@[<v 2>function bool_to_std_logic(X : boolean) return std_logic is@,";
   fprintf fmt "@[<v 2>begin@,";
   fprintf fmt "@[<v 2>if X then@,";
@@ -48,7 +89,7 @@ let mk_package name fmt =
   fprintf fmt "@[<v 2>begin@,";
   fprintf fmt "return @[<v 2>std_logic_vector(@,@[<v>unsigned(heap_base) +@,";
   fprintf fmt "unsigned(address(19 downto 0)) +@,";
-  fprintf fmt "unsigned(offset(19 downto 0) & \"00\")@]@,);@]@]@,";
+  fprintf fmt "(unsigned(offset(19 downto 0)) & \"00\")@]@,);@]@]@,";
   fprintf fmt "end;@]@,";
  
   fprintf fmt "@[<v 2>function size_header(x : caml_value) return caml_int is@,";
@@ -95,7 +136,7 @@ let conversion_from_vect ty fmt x =
       fprintf fmt "signed(%s(30 downto 0))" x
   | TConst TUnit ->
       pp_print_text fmt "UNIT_VALUE"
-  | (TPtr _| TVar _) ->  pp_print_text fmt x(* assert false *)
+  | (TPtr _| TVar _) ->  pp_print_text fmt x(* assert false (?) *)
   
 let set_result dst ty fmt x =
   let open Typ in
@@ -111,6 +152,8 @@ let set_result dst ty fmt x =
   | TConst TUnit -> 
       fprintf fmt "%s <= X\"00000001\"" dst
   | (TPtr _ | TVar _) -> fprintf fmt "%s <= %s" dst x
+  | TFlatArray (ty,size) -> 
+      assert false (* Flat arrays cannot be returned as result *)
 
 let gen_cc fmt (envi,envo,_) (envi',envo',_) name =
   (* assume : ("start",_) in envi && ("rdy",_) in envo *)
@@ -359,7 +402,7 @@ let mk_platform_c fmt (envi,envo,_) name =
   (* pas très heureux, besoin d'écrire deux fois start, 
      sinon à l'instruction suivante, le rdy est potentiellement toujours à 0 *)
 
-  fprintf fmt "@,@,while ( (result = IORD(%s_CC_BASE, %s_CC_CTL)) == 0 ); // Wait for rdy@," upName upName;
+  fprintf fmt "@,@,while ( IORD(%s_CC_BASE, %s_CC_CTL) == 0 ); // Wait for rdy@," upName upName;
   fprintf fmt "result = IORD(%s_CC_BASE, %s_CC_RESULT); // Read result@," upName upName;
 
   if !allow_trap then begin

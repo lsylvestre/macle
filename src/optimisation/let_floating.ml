@@ -35,8 +35,8 @@ let rec floating e : exp =
       let bs3 = bs2@bs0 in
       let bs4,e' = aux e in
       let bs5,bs6 = List.partition (fun (_,e) -> 
-                       not (List.exists (fun ((x,_),_) -> occur x e) bs3)) bs4 in
-      bs3@bs5,mk_let (bs1@bs6) e')
+                       not (List.exists (fun ((x,_),_) -> occur x e) bs1)) bs4 in
+      bs3,mk_let (bs1@bs5) @@ mk_let bs6 e')
   | LetFun(((f,xs),e1),e2) -> 
       let bs2,e2' = aux e2 in
       let bs_eff = List.filter (fun (_,e) -> not @@ transparent e) bs2 in
@@ -77,11 +77,21 @@ let rec floating e : exp =
        | RefAssign{r;e} ->
             RefAssign{r=floating r;e=floating e}
        | ArrayAssign{arr;idx;e} ->
-           ArrayAssign{arr= floating arr;idx=floating idx;e=floating e}
-       | ArrayFoldLeft(q,init,e) ->
-           ArrayFoldLeft(q,floating init,floating e)
-       | ArrayMapBy(n,q,e) ->
-           ArrayMapBy(n,q,floating e)),ty)
+           ArrayAssign{arr= floating arr;idx=floating idx;e=floating e}),ty)
+    | FlatArrayOp c ->
+        (* todo: faire remonter les liaisons si possible  *)
+        [],(FlatArrayOp
+            (match c with
+             | FlatMake es -> 
+                 FlatMake (List.map floating es)
+             | FlatGet{e;idx} -> 
+                  FlatGet{e = floating e ; idx = floating idx}
+             | ArraySub(e,idx,n) ->
+                  ArraySub(floating e,floating idx,n)
+             | _ -> assert false
+             ),ty)
+    | Macro _ ->
+       assert false (* already expanded *)
   in 
   let bs,e = aux e in
   mk_let bs e

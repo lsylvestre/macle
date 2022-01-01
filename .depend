@@ -2,27 +2,9 @@ src/esml/esml.cmo : \
     src/misc/loc.cmo
 src/esml/esml.cmx : \
     src/misc/loc.cmx
-src/esml/ktypes.cmo : \
-    src/esml/esml.cmo
-src/esml/ktypes.cmx : \
-    src/esml/esml.cmx
-src/esml/pp_ktypes.cmo : \
-    src/esml/ktypes.cmo
-src/esml/pp_ktypes.cmx : \
-    src/esml/ktypes.cmx
-src/esml/pprint_atom.cmo : \
-    src/esml/pp_ktypes.cmo \
-    src/esml/esml.cmo \
-    src/macle/ast.cmo
-src/esml/pprint_atom.cmx : \
-    src/esml/pp_ktypes.cmx \
-    src/esml/esml.cmx \
-    src/macle/ast.cmx
 src/esml/pprint_esml.cmo : \
-    src/esml/pprint_atom.cmo \
     src/esml/esml.cmo
 src/esml/pprint_esml.cmx : \
-    src/esml/pprint_atom.cmx \
     src/esml/esml.cmx
 src/macle/ast.cmo : \
     src/macle/types.cmo \
@@ -32,6 +14,10 @@ src/macle/ast.cmx : \
     src/macle/types.cmx \
     src/misc/loc.cmx \
     src/misc/gensym.cmx
+src/macle/ast_mapper.cmo : \
+    src/macle/ast.cmo
+src/macle/ast_mapper.cmx : \
+    src/macle/ast.cmx
 src/macle/check_tailrec.cmo : \
     src/macle/pprint_ast.cmo \
     src/misc/loc.cmo \
@@ -43,6 +29,7 @@ src/macle/check_tailrec.cmx : \
 src/macle/main.cmo : \
     src/translations/vsml2esml.cmi \
     src/macle/typing.cmo \
+    src/middle_end/safe_array_access.cmo \
     src/optimisation/propagation.cmi \
     src/macle/pprint_ast.cmo \
     src/macle/parser.cmi \
@@ -52,6 +39,7 @@ src/macle/main.cmo : \
     src/middle_end/inline.cmi \
     src/target/gen_platform.cmo \
     src/translations/esml2vhdl.cmi \
+    src/optimisation/equations.cmo \
     src/macle/check_tailrec.cmo \
     src/middle_end/ast_rename.cmi \
     src/simulation/ast2ocaml.cmi \
@@ -59,6 +47,7 @@ src/macle/main.cmo : \
 src/macle/main.cmx : \
     src/translations/vsml2esml.cmx \
     src/macle/typing.cmx \
+    src/middle_end/safe_array_access.cmx \
     src/optimisation/propagation.cmx \
     src/macle/pprint_ast.cmx \
     src/macle/parser.cmi \
@@ -68,6 +57,7 @@ src/macle/main.cmx : \
     src/middle_end/inline.cmx \
     src/target/gen_platform.cmx \
     src/translations/esml2vhdl.cmx \
+    src/optimisation/equations.cmx \
     src/macle/check_tailrec.cmx \
     src/middle_end/ast_rename.cmx \
     src/simulation/ast2ocaml.cmx \
@@ -92,10 +82,12 @@ src/macle/typing.cmx : \
     src/macle/ast.cmx
 src/middle_end/ast_rename.cmo : \
     src/misc/gensym.cmo \
+    src/macle/ast_mapper.cmo \
     src/macle/ast.cmo \
     src/middle_end/ast_rename.cmi
 src/middle_end/ast_rename.cmx : \
     src/misc/gensym.cmx \
+    src/macle/ast_mapper.cmx \
     src/macle/ast.cmx \
     src/middle_end/ast_rename.cmi
 src/middle_end/ast_rename.cmi : \
@@ -119,14 +111,28 @@ src/middle_end/inline.cmi : \
 src/middle_end/macro_expansion.cmo : \
     src/macle/types.cmo \
     src/misc/gensym.cmo \
+    src/macle/ast_mapper.cmo \
     src/macle/ast.cmo
 src/middle_end/macro_expansion.cmx : \
     src/macle/types.cmx \
     src/misc/gensym.cmx \
+    src/macle/ast_mapper.cmx \
     src/macle/ast.cmx
 src/middle_end/occur.cmo : \
+    src/macle/ast_mapper.cmo \
     src/macle/ast.cmo
 src/middle_end/occur.cmx : \
+    src/macle/ast_mapper.cmx \
+    src/macle/ast.cmx
+src/middle_end/safe_array_access.cmo : \
+    src/macle/types.cmo \
+    src/misc/gensym.cmo \
+    src/macle/ast_mapper.cmo \
+    src/macle/ast.cmo
+src/middle_end/safe_array_access.cmx : \
+    src/macle/types.cmx \
+    src/misc/gensym.cmx \
+    src/macle/ast_mapper.cmx \
     src/macle/ast.cmx
 src/misc/gensym.cmo :
 src/misc/gensym.cmx :
@@ -136,6 +142,14 @@ src/misc/misc.cmo :
 src/misc/misc.cmx :
 src/misc/monads.cmo :
 src/misc/monads.cmx :
+src/optimisation/equations.cmo : \
+    src/optimisation/transparent.cmi \
+    src/macle/ast_mapper.cmo \
+    src/macle/ast.cmo
+src/optimisation/equations.cmx : \
+    src/optimisation/transparent.cmx \
+    src/macle/ast_mapper.cmx \
+    src/macle/ast.cmx
 src/optimisation/let_floating.cmo : \
     src/optimisation/transparent.cmi \
     src/middle_end/occur.cmo \
@@ -154,20 +168,22 @@ src/optimisation/let_floating.cmi : \
     src/macle/ast.cmo
 src/optimisation/propagation.cmo : \
     src/misc/misc.cmo \
-    src/translations/macle2vsml.cmi \
+    src/macle/ast_mapper.cmo \
     src/macle/ast.cmo \
     src/optimisation/propagation.cmi
 src/optimisation/propagation.cmx : \
     src/misc/misc.cmx \
-    src/translations/macle2vsml.cmx \
+    src/macle/ast_mapper.cmx \
     src/macle/ast.cmx \
     src/optimisation/propagation.cmi
 src/optimisation/propagation.cmi : \
     src/macle/ast.cmo
 src/optimisation/transparent.cmo : \
+    src/macle/ast_mapper.cmo \
     src/macle/ast.cmo \
     src/optimisation/transparent.cmi
 src/optimisation/transparent.cmx : \
+    src/macle/ast_mapper.cmx \
     src/macle/ast.cmx \
     src/optimisation/transparent.cmi
 src/optimisation/transparent.cmi : \
@@ -189,40 +205,37 @@ src/target/gen_hw_tcl.cmo : \
 src/target/gen_hw_tcl.cmx : \
     src/translations/esml2vhdl.cmx
 src/target/gen_platform.cmo : \
-    src/esml/ktypes.cmo \
     src/target/gen_hw_tcl.cmo \
     src/translations/esml2vhdl.cmi \
     src/esml/esml.cmo \
     src/macle/ast.cmo
 src/target/gen_platform.cmx : \
-    src/esml/ktypes.cmx \
     src/target/gen_hw_tcl.cmx \
     src/translations/esml2vhdl.cmx \
     src/esml/esml.cmx \
     src/macle/ast.cmx
 src/translations/esml2vhdl.cmo : \
-    src/esml/ktypes.cmo \
     src/misc/gensym.cmo \
     src/esml/esml.cmo \
     src/macle/ast.cmo \
     src/translations/esml2vhdl.cmi
 src/translations/esml2vhdl.cmx : \
-    src/esml/ktypes.cmx \
     src/misc/gensym.cmx \
     src/esml/esml.cmx \
     src/macle/ast.cmx \
     src/translations/esml2vhdl.cmi
 src/translations/esml2vhdl.cmi : \
-    src/esml/ktypes.cmo \
     src/esml/esml.cmo
 src/translations/macle2vsml.cmo : \
     src/macle/types.cmo \
     src/misc/gensym.cmo \
+    src/middle_end/ast_rename.cmi \
     src/macle/ast.cmo \
     src/translations/macle2vsml.cmi
 src/translations/macle2vsml.cmx : \
     src/macle/types.cmx \
     src/misc/gensym.cmx \
+    src/middle_end/ast_rename.cmx \
     src/macle/ast.cmx \
     src/translations/macle2vsml.cmi
 src/translations/macle2vsml.cmi : \
@@ -231,7 +244,6 @@ src/translations/vsml2esml.cmo : \
     src/macle/types.cmo \
     src/misc/monads.cmo \
     src/translations/macle2vsml.cmi \
-    src/esml/ktypes.cmo \
     src/misc/gensym.cmo \
     src/translations/esml2vhdl.cmi \
     src/esml/esml.cmo \
@@ -241,7 +253,6 @@ src/translations/vsml2esml.cmx : \
     src/macle/types.cmx \
     src/misc/monads.cmx \
     src/translations/macle2vsml.cmx \
-    src/esml/ktypes.cmx \
     src/misc/gensym.cmx \
     src/translations/esml2vhdl.cmx \
     src/esml/esml.cmx \

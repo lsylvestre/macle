@@ -69,9 +69,22 @@ let substitution env (e:exp) =
        | RefAssign{r;e} ->
             RefAssign{ r = aux r ; e = aux e }
        | ArrayAssign{arr;idx;e} ->
-           ArrayAssign{ arr = aux arr ; idx = aux idx ; e = aux e }
-       | (ArrayFoldLeft _ | ArrayMapBy _) -> 
-           assert false (* already expanded *) )
+           ArrayAssign{ arr = aux arr ; idx = aux idx ; e = aux e })
+  | FlatArrayOp c ->
+        FlatArrayOp
+        (match c with
+         | FlatMake es -> 
+             FlatMake (List.map aux es)
+         | FlatGet{e;idx} -> 
+              FlatGet {e = aux e ; idx = aux idx}
+         | ArraySub(e,idx,n) -> 
+              ArraySub(aux e,aux idx,n)
+         | Map((xs,e),es) -> 
+              Map((xs,aux e),List.map aux es)
+         | Reduce((x,y,e0),init,e) ->
+              Reduce((x,y,aux e0),aux init,aux e))
+  | Macro _ -> 
+      assert false
 in aux e
 
 
@@ -170,10 +183,22 @@ let rec inline rec_env env (desc,ty) =
                        e = inline rec_env env e}
       | ArrayLength e -> 
           ArrayLength(inline rec_env env e)
-      | (ArrayFoldLeft _ | ArrayMapBy _) -> 
-          assert false (* already expanded *) 
     in (CamlPrim c),ty
-
+  | FlatArrayOp c ->
+        FlatArrayOp
+        (match c with
+         | FlatMake es -> 
+             FlatMake (List.map (inline rec_env env) es)
+         | FlatGet{e;idx} -> 
+              FlatGet{e = inline rec_env env e ; idx = inline rec_env env idx}
+         | ArraySub(e,idx,n) -> 
+              ArraySub(inline rec_env env e,inline rec_env env idx,n)
+         | Map((xs,e),es) -> 
+              Map((xs,inline rec_env env e),List.map (inline rec_env env) es)
+         | Reduce((x,y,e0),init,e) ->
+              Reduce((x,y,inline rec_env env e0),inline rec_env env init,inline rec_env env e)),ty
+  | Macro _ -> 
+      assert false
 
 let inline_circuit (c : TMACLE.circuit) : TMACLE.circuit = 
   {c with e = inline [] [] c.e}

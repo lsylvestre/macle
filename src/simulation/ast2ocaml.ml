@@ -32,8 +32,6 @@ let pp_binop fmt p =
   | Gt -> ">" 
   | Eq -> "=="  (* physical equality *)
   | Neq -> "!=" (* physical inequality *)
-  | Or -> "||" 
-  | And -> "&&"
 
 
 let pp_unop fmt p = 
@@ -49,8 +47,6 @@ let rec print_ty fmt ty =
   match ty with
   | TConst tc -> 
     (match tc with
-    | TStd_logic -> 
-        pp_print_text fmt "std_logic"
     | TBool -> 
         pp_print_text fmt "bool"
     | TInt -> 
@@ -65,17 +61,21 @@ let rec print_ty fmt ty =
         ~pp_sep:(fun fmt () -> fprintf fmt ", ") 
            print_ty fmt tys;
        fprintf fmt ") %s" x;
-  | TPtr ->
-      pp_print_text fmt "ptr"
   | TVar{contents=V n} -> 
       fprintf fmt "'a%d" n
   | TVar{contents=Ty t} -> 
-      fprintf fmt "{tvar <- %a}" print_ty t
+      fprintf fmt "(*tvar:=*)%a" print_ty t
   | TFun(ts,t) ->
       fprintf fmt "(";
       List.iter (fun ty -> print_ty fmt ty; fprintf fmt "->") ts;  (* manque "*" *)
       print_ty fmt t;
       fprintf fmt ")"
+  | TFlatArray (t,size) -> 
+      fprintf fmt "(%a%a) array" 
+         print_ty t
+         print_ty size
+  | TSize n ->
+      fprintf fmt "(*%d*)" n
 
 let rec pp_exp fmt (e,ty) = 
   match e with
@@ -98,107 +98,151 @@ let rec pp_exp fmt (e,ty) =
         pp_exp e1
         pp_binop p
         pp_exp e2
-| If (e1,e2,e3) ->
-    fprintf fmt "(if %a@ then @[<hov>%a@]@ else @[<hov>%a@])@,"
-      pp_exp e1
-      pp_exp e2
-      pp_exp e3
-| App (q,es) ->
-    fprintf fmt "(%a " pp_ident q;
-    pp_print_list 
-      ~pp_sep:(fun fmt () -> fprintf fmt " ") pp_exp fmt es;
-     fprintf fmt ")@,"
-| Let(bs,e) -> 
-    fprintf fmt "@[<v>(let ";
-    pp_print_list 
-        ~pp_sep:(fun fmt () -> fprintf fmt "@, and ") 
-         (fun fmt ((x,ty),e) -> 
-             fprintf fmt "%a : %a = %a" pp_ident x print_ty ty pp_exp e) fmt bs;
-     fprintf fmt "@,@]@,in %a)" pp_exp e
-| LetFun(t,e) ->
-    fprintf fmt "(@[<v 2>let ";
-    pp_transition fmt t;
-    fprintf fmt "@ in ";
-    pp_exp fmt e;
-    fprintf fmt ")@]"
-| LetRec(ts,e) ->
-    fprintf fmt "(@[<v>@[<v 2>let rec ";
-     pp_print_list 
-        ~pp_sep:(fun fmt () -> fprintf fmt "@]@,@[<v 2>and ") 
-       pp_transition fmt ts;
-    fprintf fmt "@]in (";
-    pp_exp fmt e;
-    fprintf fmt " : %a" print_ty (ty_of e);
-    fprintf fmt "))@]"
-| Match(e,cases) -> 
-    let pp_case fmt (c,xs,e) = 
-      let pp_pat fmt = function
-      | None,ty -> fprintf fmt "(_ : %a)" print_ty ty 
-      | Some x,ty -> fprintf fmt "(%a : %a)" pp_ident x print_ty ty in
-      let pp_pats fmt = function
-      | [] -> ()
-      | xs ->
-        pp_print_text fmt "(";
-        pp_print_list 
-         ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_pat fmt xs;
-        pp_print_text fmt ")" in
-      match c,xs with
-      | "::",[x;y] -> fprintf fmt "%a::%a -> %a" pp_pat x pp_pat y pp_exp e
-      | _ -> fprintf fmt "%s%a -> %a" c pp_pats xs pp_exp e  
-    in
-    fprintf fmt "(@[<v>match (%a : %a) with@," pp_exp e print_ty (ty_of e);
-    pp_print_list 
-      ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_case fmt cases;
-    fprintf fmt "| _ -> assert false";
-    fprintf fmt ")@]";
-| Raise exc -> 
-    (match exc with
-    | Exception_Failure s -> 
-        fprintf fmt "(raise @@ Failure \"%s\")" s
-    | Exception_Invalid_arg s -> 
-        fprintf fmt "(raise @@ Invalid_arg \"%s\")" s)
-| CamlPrim e -> 
-(match e with
-| RefAccess e -> 
-    fprintf fmt "!(%a : %a)"
-      pp_exp e print_ty (ty_of e)
-| RefAssign {r;e} -> 
-    fprintf fmt "(%a : %a) := (%a)"
-      pp_exp r
-      print_ty (ty_of r)
-      pp_exp e 
-| ArrayAccess{arr;idx} -> 
-    fprintf fmt "(%a : %a).(%a)"
-      pp_exp arr
-      print_ty (ty_of arr)
-      pp_exp idx
-| ArrayAssign{arr;idx;e} -> 
-    fprintf fmt "(%a : %a).(%a) <- (%a)"
-      pp_exp arr
-      print_ty (ty_of arr)
-      pp_exp idx
-      pp_exp e
-| ArrayLength e ->
-    fprintf fmt "(Array.length (%a : %a))"
-      pp_exp e
-      print_ty (ty_of e)
-| ArrayMapBy(n,x,e) ->
-   let y = Gensym.gensym "y" in
-   let z = Gensym.gensym "z" in
-   let i = Gensym.gensym "i" in
-   fprintf fmt "(let %a : %a = %a in@," pp_ident y print_ty (ty_of e) pp_exp e;
-   fprintf fmt "(Array.iteri (fun %a %a -> %a.(%a) <- %a (%a.(%a))) %a))" 
-     pp_ident i pp_ident z pp_ident y 
-     pp_ident i pp_ident x pp_ident y 
-     pp_ident i pp_ident y
-| ArrayFoldLeft(x,acc,e) ->
-    fprintf fmt "(Array.fold_left %a (%a : %a) (%a : %a))" 
-      pp_ident x 
-      pp_exp acc 
-      print_ty (ty_of acc)
-      pp_exp e
-      print_ty (ty_of e)
-)
+  | If (e1,e2,e3) ->
+      fprintf fmt "(if %a@ then @[<hov>%a@]@ else @[<hov>%a@])@,"
+        pp_exp e1
+        pp_exp e2
+        pp_exp e3
+  | App (f,es) ->
+      fprintf fmt "(%a " pp_ident f;
+      pp_print_list 
+        ~pp_sep:(fun fmt () -> fprintf fmt " ") pp_exp fmt es;
+       fprintf fmt ")@,"
+  | Let(bs,e) -> 
+      fprintf fmt "@[<v>(let ";
+      pp_print_list 
+          ~pp_sep:(fun fmt () -> fprintf fmt "@, and ") 
+           (fun fmt ((x,ty),e) -> 
+               fprintf fmt "%a : %a = %a" pp_ident x print_ty ty pp_exp e) fmt bs;
+       fprintf fmt "@,@]@,in %a)" pp_exp e
+  | LetFun(t,e) ->
+      fprintf fmt "(@[<v 2>let ";
+      pp_transition fmt t;
+      fprintf fmt "@ in ";
+      pp_exp fmt e;
+      fprintf fmt ")@]"
+  | LetRec(ts,e) ->
+      fprintf fmt "(@[<v>@[<v 2>let rec ";
+       pp_print_list 
+          ~pp_sep:(fun fmt () -> fprintf fmt "@]@,@[<v 2>and ") 
+         pp_transition fmt ts;
+      fprintf fmt "@]in (";
+      pp_exp fmt e;
+      fprintf fmt " : %a" print_ty (ty_of e);
+      fprintf fmt "))@]"
+  | Match(e,cases) -> 
+      let pp_case fmt (c,xs,e) = 
+        let pp_pat fmt = function
+        | None,ty -> fprintf fmt "(_ : %a)" print_ty ty 
+        | Some x,ty -> fprintf fmt "(%a : %a)" pp_ident x print_ty ty in
+        let pp_pats fmt = function
+        | [] -> ()
+        | xs ->
+          pp_print_text fmt "(";
+          pp_print_list 
+           ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_pat fmt xs;
+          pp_print_text fmt ")" in
+        match c,xs with
+        | "::",[x;y] -> fprintf fmt "%a::%a -> %a" pp_pat x pp_pat y pp_exp e
+        | _ -> fprintf fmt "%s%a -> %a" c pp_pats xs pp_exp e  
+      in
+      fprintf fmt "(@[<v>match (%a : %a) with@," pp_exp e print_ty (ty_of e);
+      pp_print_list 
+        ~pp_sep:(fun fmt () -> fprintf fmt "@,| ") pp_case fmt cases;
+      fprintf fmt "| _ -> assert false";
+      fprintf fmt ")@]";
+  | Raise exc -> 
+      (match exc with
+      | Exception_Failure s -> 
+          fprintf fmt "(raise (Failure \"%s\"))" s
+      | Exception_Invalid_arg s -> 
+          fprintf fmt "(raise (Invalid_argument \"%s\"))" s)
+  | CamlPrim e -> 
+  (match e with
+  | RefAccess e -> 
+      fprintf fmt "!(%a : %a)"
+        pp_exp e print_ty (ty_of e)
+  | RefAssign {r;e} -> 
+      fprintf fmt "(%a : %a) := (%a)"
+        pp_exp r
+        print_ty (ty_of r)
+        pp_exp e 
+  | ArrayAccess{arr;idx} -> 
+      fprintf fmt "(%a : %a).(%a)"
+        pp_exp arr
+        print_ty (ty_of arr)
+        pp_exp idx
+  | ArrayAssign{arr;idx;e} -> 
+      fprintf fmt "(%a : %a).(%a) <- (%a)"
+        pp_exp arr
+        print_ty (ty_of arr)
+        pp_exp idx
+        pp_exp e
+  | ArrayLength e ->
+      fprintf fmt "(Array.length (%a : %a))"
+        pp_exp e
+        print_ty (ty_of e))
+  | FlatArrayOp c ->
+      (match c with
+       | FlatMake es -> 
+           fprintf fmt "[|";
+           pp_print_list 
+             ~pp_sep:(fun fmt () -> fprintf fmt "; ") pp_exp fmt es;
+          fprintf fmt "|]";
+       | FlatGet {e;idx} -> 
+           fprintf fmt "(Array.get %a %a)" pp_exp e pp_exp idx
+       | ArraySub(e,idx,n) -> 
+            fprintf fmt "(Array.sub %a %a %d)" pp_exp e pp_exp idx n)
+  | Macro c -> 
+     (match c with
+     | LazyOr(e1,e2) -> 
+        fprintf fmt "(%a || %a)" pp_exp e1 pp_exp e2
+     | LazyAnd(e1,e2) -> 
+        fprintf fmt "(%a && %a)" pp_exp e1 pp_exp e2
+     | Map (f,[e]) ->
+        fprintf fmt "(Array.map %a %a)" 
+          pp_ident f
+          pp_exp e
+     | Map(f,[e1;e2]) ->
+        fprintf fmt "(Array.map2 %a %a %a)" 
+          pp_ident f
+          pp_exp e1
+          pp_exp e2
+     | Map(f,_) -> 
+          failwith "ast2ocaml : todo(n-ary map)"
+     | Reduce (f,init,e) ->
+        fprintf fmt "(Array.fold_left %a %a %a)" 
+          pp_ident f
+          pp_exp init 
+          pp_exp e
+      | OCamlArrayIterBy(n,f,e) ->
+          let array_iter = Gensym.gensym "array_iter" in
+          let i = Gensym.gensym "i" in
+          let x = Gensym.gensym "x" in
+          fprintf fmt "(let %a = %a in@," pp_ident x pp_exp e;
+          fprintf fmt "let rec %a %a =@," pp_ident array_iter pp_ident i;
+          fprintf fmt "if Array.length %a - %a < %d then invalid_arg \"array_iter_by\" else@," pp_ident x pp_ident i n;
+          fprintf fmt "%a (Array.sub %a %a %d);@," pp_ident f pp_ident x pp_ident i n;
+          fprintf fmt "if %a < Array.length  %a - %d then@," pp_ident i pp_ident x n;
+          fprintf fmt "%a (%a+%d) in %a 0)" pp_ident array_iter pp_ident i n pp_ident array_iter
+     | OCamlArrayMapBy(n,x,e) ->
+         let y = Gensym.gensym "y" in
+         let z = Gensym.gensym "z" in
+         let i = Gensym.gensym "i" in
+         fprintf fmt "(let %a : %a = %a in@," pp_ident y print_ty (ty_of e) pp_exp e;
+         fprintf fmt "(Array.iteri (fun %a %a -> %a.(%a) <- %a (%a.(%a))) %a))" 
+           pp_ident i pp_ident z pp_ident y 
+           pp_ident i pp_ident x pp_ident y 
+           pp_ident i pp_ident y
+      | OCamlArrayFoldLeft(x,acc,e) ->
+          fprintf fmt "(Array.fold_left %a (%a : %a) (%a : %a))" 
+            pp_ident x 
+            pp_exp acc 
+            print_ty (ty_of acc)
+            pp_exp e
+            print_ty (ty_of e))
+
+
 and pp_transition fmt ((q,xs),e) = 
   fprintf fmt "@[<b>%a@ " pp_ident q; 
   pp_print_list 

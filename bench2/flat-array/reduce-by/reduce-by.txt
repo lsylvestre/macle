@@ -1,0 +1,22 @@
+Soit un tableau [a] de 1000 éléments.
+
+On calcule la somme des éléments du tableau.
+
+Avec la version [array_fold_left] classique,
+le calcul prend 133 us.
+
+Avec la version [reduce-by 1],
+le calcul prend 202 us (ce qui suggère que le passage par un tableau VHDL (de taille 1)
+engendre un surcoût.
+
+Avec la version [reduce-by 10],
+le calcul prend 106 us.
+Cela confirme que le reduce-by est plus efficace.
+
+Par la suite, on a 
+[reduce-by 20] ~> 103 us.
+[reduce-by 50] ~> 101 us.
+[reduce-by 100] ~> 100 us (gain de 1,33).
+
+Comme la fonction de réduction est une simple addition, 
+on peut supposer que le gain provient (au moins en partie) du mode burst (lecture de plusieurs éléments à la suite, sans synchronisation à chaque lecture).

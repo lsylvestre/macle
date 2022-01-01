@@ -43,6 +43,10 @@ rule token = parse
 | "&&"              { LAND }
 | "["               { LBRACKET }
 | "]"               { RBRACKET }
+| "#[|"             { SHARP_LBRACKET_PIPE }
+| "|]"              { PIPE_RBRACKET }
+| "map"             { MAP }
+| "reduce"          { REDUCE }
 | ['!']             { BANG }
 | ['.']             { DOT }
 | "<-"              { LEFT_ARROW }
@@ -51,6 +55,9 @@ rule token = parse
 | "with"            { WITH }
 | "array_fold_left" { ARRAY_FOLD_LEFT }
 | "array_map_by"    { ARRAY_MAP }
+| "array_iter_by"   { ARRAY_ITER_BY }
+| "array_reduce_by" { ARRAY_REDUCE_BY }
+| "of_array"        { OF_ARRAY }
 | "type"            { TYPE }
 | "of"              { OF }
 | "int"             { INT }

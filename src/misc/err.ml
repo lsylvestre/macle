@@ -9,3 +9,17 @@ let pp_loc fmt (Lexing.{pos_lnum=l1;pos_cnum=c1},
 type 'a located = 'a * loc
 let mk_loc loc a = (a,loc)
 
+let error x loc pp_msg =
+  let open Format in
+  fprintf err_formatter 
+    "in circuit %s [%a]\nError: %a" x pp_loc loc pp_msg ();
+  exit 0
+
+let syntax_error ?msg loc =
+  let open Format in
+  (match msg with
+  | None -> 
+      fprintf err_formatter "%a\nsyntax error" pp_loc loc
+  | Some s -> 
+      fprintf err_formatter "%a\nsyntax error: %s" pp_loc loc s);
+  exit 0

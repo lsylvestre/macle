@@ -10,23 +10,28 @@ type token =
   | TIMES
   | THEN
   | STRING_LIT of (string)
+  | SHARP_LBRACKET_PIPE
   | SEMI_SEMI
   | SEMICOL
   | RPAREN
   | RIGHT_ARROW
+  | REDUCE
   | REC
   | RBRACKET
   | RAISE
   | QUOTE of (string)
   | PLUS
+  | PIPE_RBRACKET
   | PIPE_PIPE
   | PIPE
+  | OF_ARRAY
   | OF
   | NOT
   | NEQ
   | MOD
   | MINUS
   | MATCH
+  | MAP
   | LT
   | LPAREN
   | LET
@@ -55,8 +60,10 @@ type token =
   | BOOL_LIT of (bool)
   | BOOL
   | BANG
+  | ARRAY_REDUCE_BY
   | ARRAY_MAP
   | ARRAY_LENGTH
+  | ARRAY_ITER_BY
   | ARRAY_FOLD_LEFT
   | AND
 
