@@ -4,7 +4,7 @@ let gensym_simple =
 
 let gensym =
   let c = ref 0 in
-  fun prefix -> incr c; 
+  fun prefix -> incr c;
     let name = match String.split_on_char '#' prefix with
                | [] -> assert false
                | name::_ -> name in

@@ -40,7 +40,7 @@ let mk_hw_tcl name fmt =
   fprintf fmt "@,#@,"                                   ;
   fprintf fmt "@,# display items@,"                     ;
   fprintf fmt "#@,@,@,"                                 ;
-                  
+
   fprintf fmt "@,#@,"                                   ;
   fprintf fmt "@,# connection point s0@,"               ;
   fprintf fmt "#@,@,"                                   ;
@@ -78,7 +78,7 @@ let mk_hw_tcl name fmt =
   fprintf fmt "set_interface_assignment s0 embeddedsw.configuration.isPrintableDevice 0@,"    ;
   fprintf fmt "@,@,"  ;
 
-  if !Esml2vhdl.allow_heap_access then begin 
+  if !Esml2vhdl.allow_heap_access then begin
     fprintf fmt "#@,"                                                            ;
     fprintf fmt "@,# connection point rm@,"                                      ;
     fprintf fmt "#@,@,"                                                          ;
@@ -114,7 +114,7 @@ let mk_hw_tcl name fmt =
   end;
 
 
-  if !Esml2vhdl.allow_heap_assign then begin 
+  if !Esml2vhdl.allow_heap_assign then begin
     fprintf fmt "#@,"                                                            ;
     fprintf fmt "@,# connection point wm@,"                                      ;
     fprintf fmt "#@,@,"                                                          ;
@@ -212,4 +212,3 @@ let mk_ext_gen_qsys name fmt =
   fprintf fmt "add_connection clk.clk_reset %s.reset reset@," name_cc;
 
   fprintf fmt "@."
-

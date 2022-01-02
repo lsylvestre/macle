@@ -143,16 +143,18 @@ module PP_MACLE = struct
            fprintf fmt "(%a)[%a]" pp_exp e pp_exp idx
        | ArraySub(e,idx,n) ->
            fprintf fmt "(array_sub %a %a %d)" pp_exp e pp_exp idx n
-       | Map((xs,e),es) ->
+       | FlatMap((xs,e),es) ->
            fprintf fmt "(map (fun ";
            List.iter (fun (x,_) -> fprintf fmt "%s " x) xs;
            fprintf fmt "-> %a)" pp_exp e;
-           List.iter (fun e -> fprintf fmt "%a " pp_exp e) es
-       | Reduce(((acc,_),(y,_),e0),init,e) ->
+           List.iter (fun e -> fprintf fmt "%a " pp_exp e) es;
+           fprintf fmt ")"
+       | FlatReduce(((acc,_),(y,_),e0),init,e) ->
            fprintf fmt "(reduce (fun %s %s -> %a) %a %a" acc y
              pp_exp e0
              pp_exp init
-             pp_exp e)
+             pp_exp e);
+           fprintf fmt ")"
   | Macro c ->
     (match c with
      | LazyOr(e1,e2) ->
@@ -160,22 +162,27 @@ module PP_MACLE = struct
      | LazyAnd(e1,e2) ->
          fprintf fmt "(%a && %a)" pp_exp e1 pp_exp e2
      | Map(f,es) ->
-         fprintf fmt "map %s " f;
-         List.iter (fun e -> fprintf fmt "%a " pp_exp e) es
+         fprintf fmt "(map %s " f;
+         List.iter (fun e -> fprintf fmt "%a " pp_exp e) es;
+         fprintf fmt ")"
      | Reduce(f,init,e) ->
-         fprintf fmt "reduce %s %a %a" f
+         fprintf fmt "(reduce %s %a %a)" f
            pp_exp init
            pp_exp e
      | ArrayUpdate {arr;idx;e} ->
          fprintf fmt "(%a)[%a] <- (%a)" pp_exp arr pp_exp idx pp_exp e
-     | OCamlArrayIterBy(n,x,e) ->
-         fprintf fmt "array_iter_by %d %s %a" n x
+     | OCamlArrayIterBy(n,f,e) ->
+         fprintf fmt "array_iter_by %d %s %a" n f
            pp_exp e
-     | OCamlArrayMapBy(n,x,e) ->
-         fprintf fmt "array_map_by %d %s %a" n x
+     | OCamlArrayReduceBy(n,f,init,e) ->
+         fprintf fmt "array_reduce_by %d %s %a %a" n f
+           pp_exp init
            pp_exp e
-     | OCamlArrayFoldLeft(x,acc,e) ->
-       fprintf fmt "array_fold_left %s %a %a" x
+     | OCamlArrayMapBy(n,f,e) ->
+         fprintf fmt "array_map_by %d %s %a" n f
+           pp_exp e
+     | OCamlArrayFoldLeft(f,acc,e) ->
+       fprintf fmt "array_fold_left %s %a %a" f
          pp_exp acc
          pp_exp e)
 
@@ -310,16 +317,18 @@ module PP_TMACLE = struct
            fprintf fmt "(%a)[%a]" pp_exp e pp_exp idx
        | ArraySub(e,idx,n) ->
            fprintf fmt "(array_sub %a %a %d)" pp_exp e pp_exp idx n
-       | Map((xs,e),es) ->
+       | FlatMap((xs,e),es) ->
            fprintf fmt "(map (fun ";
            List.iter (fun (x,_) -> fprintf fmt "%s " x) xs;
            fprintf fmt "-> %a)" pp_exp e;
-           List.iter (fun e -> fprintf fmt "%a " pp_exp e) es
-       | Reduce(((acc,_),(y,_),e0),init,e) ->
+           List.iter (fun e -> fprintf fmt "%a " pp_exp e) es;
+           fprintf fmt ")"
+       | FlatReduce(((acc,_),(y,_),e0),init,e) ->
            fprintf fmt "(reduce (fun %s %s -> %a) %a %a" acc y
              pp_exp e0
              pp_exp init
-             pp_exp e)
+             pp_exp e;
+           fprintf fmt ")")
   | Macro c ->
       (match c with
        | LazyOr(e1,e2) ->
@@ -327,16 +336,21 @@ module PP_TMACLE = struct
        | LazyAnd(e1,e2) ->
            fprintf fmt "(%a && %a)" pp_exp e1 pp_exp e2
        | Map(f,es) ->
-           fprintf fmt "map %s " f;
-           List.iter (fun e -> fprintf fmt "%a " pp_exp e) es
+           fprintf fmt "(map %s " f;
+           List.iter (fun e -> fprintf fmt "%a " pp_exp e) es;
+           fprintf fmt ")"
        | Reduce(f,init,e) ->
-           fprintf fmt "reduce %s %a %a" f
+           fprintf fmt "(reduce %s %a %a)" f
              pp_exp init
              pp_exp e
        | ArrayUpdate {arr;idx;e} ->
            fprintf fmt "(%a)[%a] <- (%a)" pp_exp arr pp_exp idx pp_exp e
        | OCamlArrayIterBy(n,x,e) ->
            fprintf fmt "array_iter_by %d %s %a" n x
+             pp_exp e
+       | OCamlArrayReduceBy(n,f,init,e) ->
+           fprintf fmt "array_reduce_by %d %s %a %a" n f
+             pp_exp init
              pp_exp e
        | OCamlArrayMapBy(n,x,e) ->
            fprintf fmt "array_map_by %d %s (%a : %a)" n x

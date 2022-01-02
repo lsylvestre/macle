@@ -272,7 +272,7 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
            let v = newvar() in
            unify loc env (ty_of e') (array_ v);
            TMACLE.(FlatArrayOp (ArraySub(e',idx',n)),(TFlatArray(v,TSize n)))
-       | Map _ | Reduce _ -> assert false (* introduced later *)
+       | FlatMap _ | FlatReduce _ -> assert false (* introduced later *)
       )
   | MACLE.Macro c ->
       (match c with
@@ -432,10 +432,10 @@ let rec canon_exp (desc,ty) =
              FlatGet {e = canon_exp e ; idx = canon_exp idx}
          | ArraySub(e,idx,n) ->
              ArraySub(canon_exp e,canon_exp idx,n)
-         | Map(f,es) ->
-             Map(f,List.map canon_exp es)
-         | Reduce(f,init,e) ->
-             Reduce(f,canon_exp init,canon_exp e)
+         | FlatMap(f,es) ->
+             FlatMap(f,List.map canon_exp es)
+         | FlatReduce(f,init,e) ->
+             FlatReduce(f,canon_exp init,canon_exp e)
         )
   | Macro c ->
       Macro

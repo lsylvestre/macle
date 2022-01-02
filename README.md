@@ -10,20 +10,41 @@ A Tool dedicated to FPGA programming, directly usable in combination with [O2B](
 ### Macle Syntax
 
 ```
-pi ::= ci_1 ;; ... ci_n ;;;[;]^* P   (where P is an OCaml program)
+pi ::= d_1 ;; ... d_n ;;;[;]^* P   (where P is an OCaml program)
+
+d ::= <typdef> | ci
+
+<typdef> ::= type t = C1 of ty1_1 * ... ty1_n | Ck of tyk_1 * ... tyk_n 
+
 ci ::= circuit f x1 ... xn = e 
-e ::= c | x | f e1 ... en | let rec f x1 ... xn = e and ... in e
+e ::= c 
+    | x 
+    | f e1 ... en 
+    | let rec f x1 ... xn = e and ... in e
     | if e1 then e2 else e3
     | let x = e and ... in e
     | <unop> e
     | e1 <binop> e2
     | match e with h1 | ... hn
+    | <ext>
 
 h ::= C(p1, ... pn) -> e
 
 p ::= _ | x
+
+<ext> ::= raise "<message>"
+        | !e
+        | e1 := e2
+        | e1.(e2)
+        | e1.(e2) <- e3
+        | array_length e
+        | map f e
+        | reduce f e0 e
+        | of_array n e
+        | array_reduce_by n f e0 e
+        | array_iter_by n f e
 ```
-- exemple (*bench/simples/fact.ml*) 
+- exemple (*examples/simples/fact.ml*) 
 
 ```ocaml
 (* Macle circuit *)
@@ -49,7 +70,7 @@ $ make
 - simulation (translation into OCaml)
 
 ```ocaml
-$ ./compile bench/simples/fact.ml -simul
+$ ./compile examples/simples/fact.ml -simul
 let fact (n : int) =
   (let rec aux (acc : int)
      (n : int) =
@@ -72,7 +93,7 @@ $
 - code generation (VHDL)
 
 ```vhdl
-$ ./compile bench/simples/fact.ml -vhdl-only
+$ ./compile examples/simples/fact.ml -vhdl-only
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -87,36 +108,40 @@ entity fact is
        signal result : out caml_int);
 end entity;
 architecture RTL of fact is
-  signal acc_0x5 : caml_int := to_signed(0,31);
-  signal n_0x6 : caml_int := to_signed(0,31);
+  signal acc_0xf : caml_int;
+  signal n_0x10 : caml_int;
   
-  type STATE_0x8_T is (IDLE, AUX_0x7);
-  signal STATE_0x8 : STATE_0x8_T;
+  type STATE_0x11_T is (AUX_0xE, IDLE);
+  signal STATE_0x11 : STATE_0x11_T;
   
 begin
   process(reset,clk) begin
     if reset = '1' then
-      state_0x8 <= IDLE;
+      acc_0xf <= to_signed(0,31);
+      n_0x10 <= to_signed(0,31);
+      rdy <= '1';
+      result <= to_signed(0,31);
+      state_0x11 <= IDLE;
     elsif rising_edge(clk) then
-      case STATE_0x8 is
+      case STATE_0x11 is
+        when AUX_0xE =>
+          if n_0x10 <= to_signed(0,31) then
+            result <= acc_0xf;
+            state_0x11 <= IDLE;
+          else
+            acc_0xf <= RESIZE((acc_0xf * n_0x10),31);
+            n_0x10 <= n_0x10 - to_signed(1,31);
+            state_0x11 <= AUX_0xE;
+          end if;
         when IDLE =>
           if start = '1' then
             rdy <= '0';
-            acc_0x5 <= to_signed(1,31);
-            n_0x6 <= n;
-            state_0x8 <= AUX_0x7;
+            acc_0xf <= to_signed(1,31);
+            n_0x10 <= n;
+            state_0x11 <= AUX_0xE;
           else
             rdy <= '1';
-            state_0x8 <= IDLE;
-          end if;
-        when AUX_0x7 =>
-          if n_0x6 <= to_signed(0,31) then
-            result <= acc_0x5;
-            state_0x8 <= IDLE;
-          else
-            acc_0x5 <= RESIZE((acc_0x5 * n_0x6),31);
-            n_0x6 <= n_0x6 - to_signed(1,31);
-            state_0x8 <= AUX_0x7;
+            state_0x11 <= IDLE;
           end if;
         end case;
       end if;
@@ -129,6 +154,6 @@ $
 - **O2B** platform generation
 
 ```
-./compile bench/simples/fact.ml
+./compile examples/simples/fact.ml
   info: circuit  "fact"  generated in folder gen/.
 ```

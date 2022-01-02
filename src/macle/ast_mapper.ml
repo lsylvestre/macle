@@ -55,10 +55,10 @@ let iter f env e =
          | ArraySub(e,idx,_) ->
              aux env e;
              aux env idx
-         | Map((_,e),es) ->
+         | FlatMap((_,e),es) ->
              aux env e;
              List.iter (aux env) es
-         | Reduce((_,_,e0),init,e) ->
+         | FlatReduce((_,_,e0),init,e) ->
              aux env e0;
              aux env init;
              aux env e)
@@ -177,15 +177,15 @@ let map f env e =
                let e' = aux env e in
                let idx' = aux env idx in
              ArraySub(e',idx',n)
-           | Map((xs,e),es) ->
+           | FlatMap((xs,e),es) ->
                let e' = aux env e in
                let es' = List.map (aux env) es in
-               Map((xs,e'),es')
-           | Reduce((x,y,e0),init,e) ->
+               FlatMap((xs,e'),es')
+           | FlatReduce((x,y,e0),init,e) ->
                let e0' = aux env e0 in
                let init' = aux env init in
                let e' = aux env e in
-               Reduce((x,y,e0'),init',e'))
+               FlatReduce((x,y,e0'),init',e'))
     | Macro c ->
         Macro
           (match c with

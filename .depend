@@ -20,26 +20,26 @@ src/macle/ast_mapper.cmx : \
     src/macle/ast.cmx
 src/macle/check_tailrec.cmo : \
     src/macle/pprint_ast.cmo \
-    src/misc/loc.cmo \
+    src/misc/err.cmo \
     src/macle/ast.cmo
 src/macle/check_tailrec.cmx : \
     src/macle/pprint_ast.cmx \
-    src/misc/loc.cmx \
+    src/misc/err.cmx \
     src/macle/ast.cmx
 src/macle/main.cmo : \
     src/translations/vsml2esml.cmi \
     src/macle/typing.cmo \
-    src/middle_end/safe_array_access.cmo \
+    src/middle_end/safe_array_access.cmi \
     src/optimisation/propagation.cmi \
     src/macle/pprint_ast.cmo \
     src/macle/parser.cmi \
-    src/middle_end/macro_expansion.cmo \
+    src/middle_end/macro_expansion.cmi \
     src/translations/macle2vsml.cmi \
     src/optimisation/let_floating.cmi \
     src/middle_end/inline.cmi \
     src/target/gen_platform.cmo \
     src/translations/esml2vhdl.cmi \
-    src/optimisation/equations.cmo \
+    src/optimisation/equations.cmi \
     src/macle/check_tailrec.cmo \
     src/middle_end/ast_rename.cmi \
     src/simulation/ast2ocaml.cmi \
@@ -75,10 +75,12 @@ src/macle/types.cmx :
 src/macle/typing.cmo : \
     src/macle/types.cmo \
     src/misc/loc.cmo \
+    src/misc/err.cmo \
     src/macle/ast.cmo
 src/macle/typing.cmx : \
     src/macle/types.cmx \
     src/misc/loc.cmx \
+    src/misc/err.cmx \
     src/macle/ast.cmx
 src/middle_end/ast_rename.cmo : \
     src/misc/gensym.cmo \
@@ -112,12 +114,16 @@ src/middle_end/macro_expansion.cmo : \
     src/macle/types.cmo \
     src/misc/gensym.cmo \
     src/macle/ast_mapper.cmo \
-    src/macle/ast.cmo
+    src/macle/ast.cmo \
+    src/middle_end/macro_expansion.cmi
 src/middle_end/macro_expansion.cmx : \
     src/macle/types.cmx \
     src/misc/gensym.cmx \
     src/macle/ast_mapper.cmx \
-    src/macle/ast.cmx
+    src/macle/ast.cmx \
+    src/middle_end/macro_expansion.cmi
+src/middle_end/macro_expansion.cmi : \
+    src/macle/ast.cmo
 src/middle_end/occur.cmo : \
     src/macle/ast_mapper.cmo \
     src/macle/ast.cmo
@@ -128,12 +134,18 @@ src/middle_end/safe_array_access.cmo : \
     src/macle/types.cmo \
     src/misc/gensym.cmo \
     src/macle/ast_mapper.cmo \
-    src/macle/ast.cmo
+    src/macle/ast.cmo \
+    src/middle_end/safe_array_access.cmi
 src/middle_end/safe_array_access.cmx : \
     src/macle/types.cmx \
     src/misc/gensym.cmx \
     src/macle/ast_mapper.cmx \
-    src/macle/ast.cmx
+    src/macle/ast.cmx \
+    src/middle_end/safe_array_access.cmi
+src/middle_end/safe_array_access.cmi : \
+    src/macle/ast.cmo
+src/misc/err.cmo :
+src/misc/err.cmx :
 src/misc/gensym.cmo :
 src/misc/gensym.cmx :
 src/misc/loc.cmo :
@@ -144,12 +156,18 @@ src/misc/monads.cmo :
 src/misc/monads.cmx :
 src/optimisation/equations.cmo : \
     src/optimisation/transparent.cmi \
+    src/middle_end/ast_rename.cmi \
     src/macle/ast_mapper.cmo \
-    src/macle/ast.cmo
+    src/macle/ast.cmo \
+    src/optimisation/equations.cmi
 src/optimisation/equations.cmx : \
     src/optimisation/transparent.cmx \
+    src/middle_end/ast_rename.cmx \
     src/macle/ast_mapper.cmx \
-    src/macle/ast.cmx
+    src/macle/ast.cmx \
+    src/optimisation/equations.cmi
+src/optimisation/equations.cmi : \
+    src/macle/ast.cmo
 src/optimisation/let_floating.cmo : \
     src/optimisation/transparent.cmi \
     src/middle_end/occur.cmo \
@@ -215,11 +233,13 @@ src/target/gen_platform.cmx : \
     src/esml/esml.cmx \
     src/macle/ast.cmx
 src/translations/esml2vhdl.cmo : \
+    src/misc/misc.cmo \
     src/misc/gensym.cmo \
     src/esml/esml.cmo \
     src/macle/ast.cmo \
     src/translations/esml2vhdl.cmi
 src/translations/esml2vhdl.cmx : \
+    src/misc/misc.cmx \
     src/misc/gensym.cmx \
     src/esml/esml.cmx \
     src/macle/ast.cmx \

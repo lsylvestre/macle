@@ -86,10 +86,10 @@ let tailrec e =
              aux ~tailpos:false lenv env idx
          | ArraySub(e,_,_) ->
              aux ~tailpos:false lenv env e
-         | Map((xs,e),es) ->
+         | FlatMap((xs,e),es) ->
              aux ~tailpos:false lenv env e;
              List.iter (aux ~tailpos:false lenv env) es
-         | Reduce((_,_,e0),init,e) ->
+         | FlatReduce((_,_,e0),init,e) ->
              aux ~tailpos:false lenv env e0;
              aux ~tailpos:false lenv env init;
              aux ~tailpos:false lenv env e)

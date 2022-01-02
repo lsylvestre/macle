@@ -102,8 +102,8 @@ module Make(D : sig type decoration end) = struct
     | FlatMake of exp list
     | FlatGet of {e:exp ; idx:exp}
     | ArraySub of (exp * exp * int)
-    | Map of ((ident * decoration) list * exp) * exp list
-    | Reduce of ((ident * decoration) * (ident * decoration) * exp) * exp * exp
+    | FlatMap of ((ident * decoration) list * exp) * exp list
+    | FlatReduce of ((ident * decoration) * (ident * decoration) * exp) * exp * exp
   and macro =
     | LazyOr of exp * exp
     | LazyAnd of exp * exp

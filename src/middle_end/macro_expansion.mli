@@ -1,2 +1,3 @@
-val inline_circuit :
+
+val expand_circuit :
   Ast.TMACLE.circuit -> Ast.TMACLE.circuit

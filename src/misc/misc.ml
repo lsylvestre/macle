@@ -20,12 +20,12 @@ let split_rev r =
   let rec aux l1 l2 = function
   | [] -> (l1,l2)
   | (x1,x2)::r -> aux (x1::l1) (x2::l2) r in
-  aux [] [] r   
+  aux [] [] r
 
 let split_map f l =
   split_rev (List.rev_map f l)
 
-let mapcat f l = 
+let mapcat f l =
   List.concat (List.map f l)
 
 let rec list_last = function
@@ -33,24 +33,24 @@ let rec list_last = function
 | [a] -> a
 | _::l -> list_last l
 
-let split3 l = 
+let split3 l =
   let rec aux l1 l2 l3 = function
   | [] -> (l1,l2,l3)
   | (x1,x2,x3)::l -> aux (x1::l1) (x2::l2) (x3::l3) l
 in aux [] [] [] (List.rev l)
 
-let split4 l = 
+let split4 l =
   let rec aux l1 l2 l3 l4 = function
   | [] -> (l1,l2,l3,l4)
   | (x1,x2,x3,x4)::l -> aux (x1::l1) (x2::l2) (x3::l3) (x4::l4) l
 in aux [] [] [] (List.rev l)
 
 
-let list_map3 f l1 l2 l3 = 
+let list_map3 f l1 l2 l3 =
   let rec aux acc l1 l2 l3 =
   match l1,l2,l3 with
   | [],[],[] -> List.rev acc
-  | (x1::l1,x2::l2,x3::l3) -> 
+  | (x1::l1,x2::l2,x3::l3) ->
       let v = f x1 x2 x3 in
       aux (v::acc) l1 l2 l3
   | _ -> invalid_arg "list_map3"

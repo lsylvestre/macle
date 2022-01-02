@@ -112,6 +112,10 @@ let pp_op fmt (p:op) : unit =
       fprintf fmt "#flat_array_get"
   | FlatArrayMake _ ->
       fprintf fmt "#flat_array_make"
+  | NextField ->
+      fprintf fmt "#next_field"
+  | Array_create _ ->
+      fprintf fmt "#array_create"
 
 let parenthesized ~paren fmt (cb:unit -> unit) : unit =
   if paren then fprintf fmt "(";

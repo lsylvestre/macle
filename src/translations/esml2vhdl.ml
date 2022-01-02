@@ -19,19 +19,19 @@ module At_reset = struct
   module S = Set.Make(String)
 
   let rec w_inst (acc:S.t) (s:inst) : S.t =
-    match s with 
-    | ESML_continue _ -> 
+    match s with
+    | ESML_continue _ ->
         acc
     | ESML_do(bs,s) ->
         let acc' = List.fold_right (fun (x,_) acc -> S.add x acc) bs acc in
         w_inst acc' s
-    | ESML_SetArray(_,s) -> 
+    | ESML_SetArray(_,s) ->
         w_inst acc s
     | ESML_if(a,s1,s2) ->
         let acc' = w_inst acc s1 in
         w_inst acc' s2
 
-  (* [w_automaton a] compute the set of outputs and local 
+  (* [w_automaton a] compute the set of outputs and local
      variables assigned in the ESML automaton [a] *)
   let w_automaton (a:automaton) : S.t =
     let (ts,s) = a in
@@ -40,24 +40,24 @@ module At_reset = struct
 
   let filter_signature (st:signature) (a:automaton) : signature =
     let acc = w_automaton a in
-    List.filter (fun (_,x,_) -> S.mem x acc) st 
+    List.filter (fun (_,x,_) -> S.mem x acc) st
 end
 
 
 
-let c_ty fmt (ty:Typ.t) : unit = 
+let c_ty fmt (ty:Typ.t) : unit =
   let open Typ in
-  let rec string_of_ty = function 
+  let rec string_of_ty = function
   | TConst TStd_logic -> "std_logic"
   | TConst TBool -> "boolean"
   | TConst TUnit -> "unit"
   | TConst TInt -> "caml_int"
-  | (TPtr _ | TVar _) -> 
+  | (TPtr _ | TVar _) ->
        "caml_value"
-  | TFlatArray (ty,size) -> 
+  | TFlatArray (ty,size) ->
     let sty = string_of_ty ty in
-    let s = "array_" ^ sty ^ "_" ^ string_of_int size in 
-    if not @@ List.mem_assoc s !array_defs 
+    let s = "array_" ^ sty ^ "_" ^ string_of_int size in
+    if not @@ List.mem_assoc s !array_defs
     then array_defs := (s,(sty,size))::!array_defs;
     s
   in
@@ -65,7 +65,7 @@ let c_ty fmt (ty:Typ.t) : unit =
 
 
 
-let c_binop fmt (p:Atom.binop) : unit = 
+let c_binop fmt (p:Atom.binop) : unit =
   let open Atom in
   pp_print_text fmt @@
   match p with
@@ -81,7 +81,7 @@ let c_binop fmt (p:Atom.binop) : unit =
   | And -> "and"
   | Or -> "or"
 
-let c_unop fmt (p:Atom.unop) : unit = 
+let c_unop fmt (p:Atom.unop) : unit =
   let open Atom in
   pp_print_text fmt @@
   match p with
@@ -89,29 +89,29 @@ let c_unop fmt (p:Atom.unop) : unit =
   | Uminus -> "-"
   | DivBy2 | Mod2 -> assert false
 
-(* - two underscores can't be consecutive 
-   - an identifier can't start with '_' 
+(* - two underscores can't be consecutive
+   - an identifier can't start with '_'
    - an identifier can't contain a single quote
 
-   - '#' character introduced before by Gensym.gensym 
+   - '#' character introduced before by Gensym.gensym
      is replaced by the string "_id" *)
 let vhdl_ident (x:ident) : ident =
   let open String in
   let x = concat "_0x" @@ split_on_char '#' x in
   let y = concat "CHAR_ASCII39" @@ split_on_char '\'' x in
-  y |> split_on_char '_' 
+  y |> split_on_char '_'
   |> List.map (function "" -> "CHAR_ASCII95" | s -> s)
   |> concat "_"
 
-let c_cstr fmt (c:ident) : unit = 
+let c_cstr fmt (c:ident) : unit =
   pp_print_text fmt (vhdl_ident @@ String.uppercase_ascii c)
 
 let c_state = c_cstr
 
-let c_ident fmt (q:ident) : unit = 
+let c_ident fmt (q:ident) : unit =
   pp_print_text fmt (vhdl_ident @@ String.lowercase_ascii q)
 
-let pp_std_logic fmt (v:Atom.std_logic) : unit = 
+let pp_std_logic fmt (v:Atom.std_logic) : unit =
   let open Atom in
   pp_print_text fmt @@
   match v with
@@ -125,75 +125,75 @@ let pp_std_logic fmt (v:Atom.std_logic) : unit =
   | H -> "'H'"
   | Whatever -> "'-'"
 
-let parenthesized ~paren fmt (cb:unit -> unit) : unit = 
-  if paren then fprintf fmt "("; 
-  cb (); 
-  if paren then fprintf fmt ")" 
+let parenthesized ~paren fmt (cb:unit -> unit) : unit =
+  if paren then fprintf fmt "(";
+  cb ();
+  if paren then fprintf fmt ")"
 
-let is_ptr (t:Typ.t) : bool = 
+let is_ptr (t:Typ.t) : bool =
   let open Typ in
   match t with
   TPtr _ | TVar _ -> true
   | _ (* immediate value *) -> false
 
-let c_const fmt (c:Atom.const) : unit = 
+let c_const fmt (c:Atom.const) : unit =
   let open Atom in
   match c with
-  | Std_logic v -> 
+  | Std_logic v ->
      pp_std_logic fmt v
-  | Bool b -> 
+  | Bool b ->
       fprintf fmt "%b" b
-  | Int n -> 
+  | Int n ->
       fprintf fmt "to_signed(%d,31)" n
-  | Unit -> 
+  | Unit ->
       pp_print_text fmt "UNIT_VALUE"
-  | Cstr c ->    
+  | Cstr c ->
       (* (match c with
       | "[]" -> pp_print_text fmt "X\"00000001\""
       | "::" -> pp_print_text fmt "to_signed(0,31)"
       | "," -> pp_print_text fmt "to_signed(0,31)"
       | _ -> *)
       let (n,tys) = Ast.val_of_constructor c in
-      if tys = [] 
+      if tys = []
       then fprintf fmt "std_logic_vector(to_signed(%d,31)) & \"1\"" n
       else fprintf fmt "to_signed(%d,31)" n
 
-  | EmptyList -> 
-      pp_print_text fmt 
+  | EmptyList ->
+      pp_print_text fmt
         "X\"00000001\"" (* constant 0 as immediate OCaml value *)
 
-let c_atom env fmt (a:Atom.t) : unit = 
+let c_atom env fmt (a:Atom.t) : unit =
   let open Atom in
   let rec pp_atom ~paren fmt a =
-    match a with 
-    | State q -> 
+    match a with
+    | State q ->
         c_state fmt q
     | Var x ->
         (match List.assoc_opt x env with
         | Some a -> pp_atom ~paren fmt a
         | None -> c_ident fmt x)
-    | Const c -> 
+    | Const c ->
         c_const fmt c
     | Prim p ->
      (match p with
       | (Binop p,[a1;a2]) ->
         parenthesized ~paren fmt @@ fun () ->
-          let f = function Mul -> true | _ -> false in  
-          fprintf fmt (if f p 
-                       then "RESIZE((%a %a %a),31)" 
+          let f = function Mul -> true | _ -> false in
+          fprintf fmt (if f p
+                       then "RESIZE((%a %a %a),31)"
                        else "%a %a %a")
             (pp_atom ~paren:true) a1
             c_binop p
             (pp_atom ~paren:true) a2
-     | (Unop DivBy2,[a]) -> 
+     | (Unop DivBy2,[a]) ->
         parenthesized ~paren fmt @@ fun () ->
           fprintf fmt "%a / 2"
             (pp_atom ~paren:true) a
-     | (Unop Mod2,[a]) -> 
+     | (Unop Mod2,[a]) ->
         parenthesized ~paren fmt @@ fun () ->
           fprintf fmt "(%a) mod 2"   (* todo *)
             (pp_atom ~paren:true) a
-     | (Unop p,[a]) -> 
+     | (Unop p,[a]) ->
         parenthesized ~paren fmt @@ fun () ->
           fprintf fmt "%a %a"
             c_unop p
@@ -204,7 +204,7 @@ let c_atom env fmt (a:Atom.t) : unit =
         fprintf fmt "tag_header(%a)" (pp_atom ~paren:true) a
      | (IsImm,[a]) ->
         fprintf fmt "is_imm(%a)" (pp_atom ~paren:true) a
-     | (FromCaml t,[a]) -> 
+     | (FromCaml t,[a]) ->
          (match t with
          | TConst TBool -> fprintf fmt "(%a(1) = '1')" (pp_atom ~paren:true) a
          | TConst TInt -> fprintf fmt "signed(%a(31 downto 1))" (pp_atom ~paren:true) a
@@ -215,39 +215,39 @@ let c_atom env fmt (a:Atom.t) : unit =
          | TConst TInt -> fprintf fmt "std_logic_vector(%a)& \"1\"" (pp_atom ~paren:true) a
          | _ -> pp_atom ~paren fmt a)
      | (ComputeAddress,[h;addr;ofs]) ->
-         fprintf fmt "compute_address(%a, %a, %a)" 
+         fprintf fmt "compute_address(%a, %a, %a)"
            (pp_atom ~paren:false) h
            (pp_atom ~paren:false) addr
            (pp_atom ~paren:false) ofs
      | (FlatArrayMake ty,es) ->
-         fprintf fmt "@[<v 2>%a_create (@," c_ty ty; 
+         fprintf fmt "@[<v 2>%a_create (@," c_ty ty;
          pp_print_list ~pp_sep:(fun fmt () -> fprintf fmt ",@ ") (pp_atom ~paren:false) fmt es;
          fprintf fmt ")@]"
-     | (FlatArrayGet,[a;Const (Int i)]) -> 
-          fprintf fmt "%a(%d)" (pp_atom ~paren:false) a i 
-     | (FlatArrayGet,[a;i]) -> 
+     | (FlatArrayGet,[a;Const (Int i)]) ->
+          fprintf fmt "%a(%d)" (pp_atom ~paren:false) a i
+     | (FlatArrayGet,[a;i]) ->
           fprintf fmt "%a(to_integer(%a))"
-            (pp_atom ~paren:false) a 
+            (pp_atom ~paren:false) a
             (pp_atom ~paren:false) i
-     | Array_create n,[a] -> 
+     | Array_create n,[a] ->
           fprintf fmt "(others => %a)" (pp_atom ~paren:false) a
      | NextField,[a] ->
           fprintf fmt "std_logic_vector(unsigned(%a) + to_unsigned(4,31))"
-             (pp_atom ~paren:false) a 
+             (pp_atom ~paren:false) a
      | _ -> assert false) (* ill-formed primitive application *)
   in
   pp_atom ~paren:false fmt a
 
-let assign env fmt (x:ident) pp y = 
+let assign env fmt (x:ident) pp y =
   fprintf fmt "%a <= %a;" c_ident x pp y
 
-let rec c_instruction env (dst:ident) fmt (s:inst) : unit = 
+let rec c_instruction env (dst:ident) fmt (s:inst) : unit =
   match s with
-  | ESML_continue q -> 
+  | ESML_continue q ->
       assign env fmt dst c_state q
   | ESML_do(bs,s) ->
-      (* "the Quartus II software supports multiple assignments 
-          to the same signal even though the last one assigned takes 
+      (* "the Quartus II software supports multiple assignments
+          to the same signal even though the last one assigned takes
           precedence."
 
           https://www.intel.com/content/www/us/en/support/programmable/articles/000085525.html
@@ -255,49 +255,49 @@ let rec c_instruction env (dst:ident) fmt (s:inst) : unit =
       fprintf fmt "@[<v>";
       List.iter (fun (x,a) ->
                    assign env fmt x (c_atom env) a;
-                   fprintf fmt "@,") 
+                   fprintf fmt "@,")
           bs;
       c_instruction (bs@env) dst fmt s;
       fprintf fmt "@]";
-  | ESML_SetArray((x,idx,a),s) -> 
-      fprintf fmt "@[%a(to_integer(%a)) <= %a;@,%a@]" 
+  | ESML_SetArray((x,idx,a),s) ->
+      fprintf fmt "@[%a(to_integer(%a)) <= %a;@,%a@]"
         c_ident x
         (c_atom env) idx
         (c_atom env) a
         (c_instruction env dst) s
   | ESML_if(a,s1,s2) ->
       fprintf fmt "@[<v 2>if %a then@,%a@]@,@[<v 2>else@,%a@]@,end if;"
-        (c_atom env) a 
+        (c_atom env) a
         (c_instruction env dst) s1
         (c_instruction env dst) s2
 
 
 let c_transition (dst:state) fmt ((q,s) : transition) : unit =
-  fprintf fmt "@[<v 2>when %a =>@,%a@]" 
+  fprintf fmt "@[<v 2>when %a =>@,%a@]"
     c_state q
     (c_instruction [] dst) s
 
-let c_transitions (dst:state) fmt (ts:transition list) : unit = 
+let c_transitions (dst:state) fmt (ts:transition list) : unit =
   pp_print_list
     (c_transition dst) fmt ts
 
 let rec default_value fmt (ty:Typ.t) : unit =
   let open Typ in
   match ty with
-  | TConst TStd_logic -> 
+  | TConst TStd_logic ->
       pp_print_text fmt "'0'"
-  | TConst TBool -> 
+  | TConst TBool ->
       pp_print_text fmt "false"
-  | TConst TInt -> 
+  | TConst TInt ->
       pp_print_text fmt "to_signed(0,31)"
-  | TConst TUnit -> 
+  | TConst TUnit ->
       pp_print_text fmt "UNIT_VALUE"
-  | (TPtr _ | TVar _) -> 
+  | (TPtr _ | TVar _) ->
       pp_print_text fmt "X\"00000000\""
   | TFlatArray (ty,n) ->
        fprintf fmt "(others=>%a)" default_value ty
-     
-let outputs_initial_values = 
+
+let outputs_initial_values =
   let open Atom in
   [ ("rdy",Std_logic One);
     ("avm_rm_read",Std_logic Zero) ]
@@ -309,9 +309,9 @@ let c_automaton ~(reset:ident) ~(clock:ident) ?(at_reset=[]) (state_var:state) f
 
   List.iter (fun (_,x,ty) ->
      match List.assoc_opt x outputs_initial_values with
-     | None -> 
+     | None ->
         fprintf fmt "%a <= %a;@," c_ident x default_value ty
-     | Some a -> 
+     | Some a ->
         fprintf fmt "%a <= %a;@," c_ident x c_const a
   ) at_reset;
 
@@ -328,21 +328,21 @@ let c_automaton ~(reset:ident) ~(clock:ident) ?(at_reset=[]) (state_var:state) f
 let c_vars_decl d pp fmt vars =
   List.iter (fun (d',x,ty) -> if d' = d then pp fmt (x,ty)) vars
 
-let c_var_local fmt (x,ty) = 
+let c_var_local fmt (x,ty) =
   fprintf fmt "signal %a : %a;@," c_ident x c_ty ty
 
-let c_var_in fmt (x,ty) = 
-  fprintf fmt ";@,signal %a : in %a" c_ident x 
+let c_var_in fmt (x,ty) =
+  fprintf fmt ";@,signal %a : in %a" c_ident x
       c_ty ty
 
-let c_var_out fmt (x,ty) = 
-  fprintf fmt ";@,signal %a : out %a" c_ident x 
+let c_var_out fmt (x,ty) =
+  fprintf fmt ";@,signal %a : out %a" c_ident x
       c_ty ty
 
 
 
 let compile_esml_circuit ?(reset="reset") ?(clock="clk")
-             fmt {x=name;vars=st;body=automata } = 
+             fmt {x=name;vars=st;body=automata } =
 
   fprintf fmt "@[<v>library ieee;@,";
   fprintf fmt "use ieee.std_logic_1164.all;@,";
@@ -351,7 +351,7 @@ let compile_esml_circuit ?(reset="reset") ?(clock="clk")
   fprintf fmt "@[<v 2>entity %s is@," name;
   fprintf fmt "port(@[<v>signal %s : in std_logic;@," clock;
   fprintf fmt "signal %s : in std_logic" reset;
-  
+
   c_vars_decl In c_var_in fmt st;
 
   c_vars_decl Out c_var_out fmt st;
@@ -362,9 +362,9 @@ let compile_esml_circuit ?(reset="reset") ?(clock="clk")
 
   c_vars_decl Local c_var_local fmt st;
 
-  let state_vars = 
+  let state_vars =
     List.map (fun _ -> Gensym.gensym "STATE") automata in
-  
+
   List.iter2 (fun sv (ts,e)(* automaton *) ->
     let sv = vhdl_ident sv in
     let qs = List.map fst ts in
@@ -380,11 +380,10 @@ let compile_esml_circuit ?(reset="reset") ?(clock="clk")
 
   let w_vars = List.map (At_reset.filter_signature st) automata in
 
-  Misc.list_iter3(fun (q_var:ident) a at_reset -> 
-               c_automaton ~reset ~clock ~at_reset q_var fmt a) 
-    state_vars 
+  Misc.list_iter3(fun (q_var:ident) a at_reset ->
+               c_automaton ~reset ~clock ~at_reset q_var fmt a)
+    state_vars
     automata
     w_vars;
 
   fprintf fmt "@]@,end architecture;@]@."
-
