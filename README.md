@@ -1,4 +1,4 @@
-# Macle (ML accelerator)
+# Macle (*ML accelerator*)
 
 A language to program hardware-accelerated functions in ML style,
 and call them from OCaml program running on FPGA via O2B (https://github.com/jserot/O2B).
@@ -19,9 +19,9 @@ $ ./maclec tests/eval_exp.ml
 
 $ ./maclec tests/eval_exp.ml -simul
 
-   # translate the source Macle/OCaml program into an OCaml one.
+   # translates the Macle/OCaml source program into an OCaml one.
 
-$ ./maclec tests/eval_exp.ml -simul
+$ ./maclec tests/eval_exp.ml -ocaml-backend
 
-   # translate the intermediate representation used by the compiler into an OCaml program. 
+   # translates the intermediate representation used by the compiler into an OCaml program. 
 ```
