@@ -2,8 +2,8 @@ open Ast
 open TMACLE
 
 let iter f env e =
-  let rec aux env (desc,_) =
-    let desc,env = f desc env in
+  let rec aux env e =
+    let desc,env = f e env in
     match desc with
     | Var _ | Const _ -> ()
     | Unop(_,e) ->
@@ -36,7 +36,7 @@ let iter f env e =
          | ArrayAccess { arr ; idx } ->
              aux env arr;
              aux env idx
-         | (RefAccess e | ArrayLength e) ->
+         | (RefAccess e | ArrayLength e | Ref e) ->
              aux env e
          | RefAssign{r;e} ->
              aux env r;
@@ -44,21 +44,31 @@ let iter f env e =
          | ArrayAssign {arr;idx;e} ->
              aux env arr;
              aux env idx;
+             aux env e
+         | ArrayMake{size;e} ->
+             aux env size;
              aux env e)
-    | FlatArrayOp c ->
+    | PacketPrim c ->
         (match c with
-         | FlatMake es ->
+         | PkMake es ->
              List.iter (aux env) es
-         | FlatGet {e;idx} ->
+         | PkGet (e,idx) ->
              aux env e;
              aux env idx
-         | ArraySub(e,idx,_) ->
+         | PkSet(x,idx,e) ->
+             aux env idx;
+             aux env e
+         | ToPacket(e,idx,_) ->
              aux env e;
              aux env idx
-         | FlatMap((_,e),es) ->
+         | OfPacket(e1,e2,idx,_) ->
+             aux env e1;
+             aux env e2;
+             aux env idx
+         | PkMap((_,e),es) ->
              aux env e;
              List.iter (aux env) es
-         | FlatReduce((_,_,e0),init,e) ->
+         | PkReduce((_,_,e0),init,e) | PkScan((_,_,e0),init,e) ->
              aux env e0;
              aux env init;
              aux env e)
@@ -68,30 +78,34 @@ let iter f env e =
          | LazyAnd(e1,e2) ->
              aux env e1;
              aux env e2
-         | Map(_,es) ->
-             List.iter (aux env) es
-         | Reduce(_,init,e) ->
+         | OCamlArrayReduce (_,_,init,e) ->
              aux env init;
              aux env e
-         | ArrayUpdate{arr;idx;e} ->
-             aux env arr;
-             aux env idx;
-             aux env e
-         | OCamlArrayReduceBy(_,_,init,e) ->
+         | OCamlArrayMap(_,_,e1,e2) ->
+             aux env e1;
+             aux env e2
+         | OCamlArrayScan(n,f,init,e,dst) ->
              aux env init;
+             aux env e;
+             aux env dst)
+    | StackPrim c ->
+       (match c with
+        | Push(_,e) ->
              aux env e
-         | OCamlArrayIterBy(_,_,e) ->
+        | Push_arg(e1,e2) ->
+             aux env e1;
+             aux env e2
+        | LetPop(_,e) ->
              aux env e
-         | OCamlArrayFoldLeft (_,init,e) ->
-             aux env init;
+        | Save (_,e) ->
              aux env e
-         | OCamlArrayMapBy (_,_,e) ->
-             aux env e)
+        | Restore ->
+             ())
   in
   aux env e
 
 let check f e =
-  iter (fun desc () -> f desc; desc,()) () e
+  iter (fun (desc,_) () -> f desc; desc,()) () e
 
 
 
@@ -151,6 +165,9 @@ let map f env e =
            | RefAccess e ->
                let e' = aux env e in
                RefAccess e'
+           | Ref e ->
+               let e' = aux env e in
+               Ref e'
            | ArrayLength e ->
                let e' = aux env e in
                ArrayLength e'
@@ -162,30 +179,48 @@ let map f env e =
                let arr' = aux env arr in
                let idx' = aux env idx in
                let e' = aux env e in
-               ArrayAssign{arr = arr' ; idx = idx' ; e = e'})
-    | FlatArrayOp c ->
-        FlatArrayOp
+               ArrayAssign{arr = arr' ; idx = idx' ; e = e'}
+               | ArrayMake { size ; e } ->
+               let size' = aux env size in
+               let e' = aux env e in
+               ArrayMake { size = size' ; e = e' })
+    | PacketPrim c ->
+        PacketPrim
           (match c with
-           | FlatMake es ->
+           | PkMake es ->
                let es' = List.map (aux env) es in
-               FlatMake es'
-           | FlatGet {e;idx} ->
+               PkMake es'
+           | PkGet(e,idx) ->
                let e' = aux env e in
                let idx' = aux env idx in
-               FlatGet{e = e';idx = idx'}
-           | ArraySub(e,idx,n) ->
+               PkGet(e', idx')
+           | PkSet(x,idx,e) ->
+               let idx' = aux env idx in
+               let e' = aux env e in
+               PkSet(x,idx',e')
+           | ToPacket(e,idx,n) ->
                let e' = aux env e in
                let idx' = aux env idx in
-             ArraySub(e',idx',n)
-           | FlatMap((xs,e),es) ->
+               ToPacket(e',idx',n)
+           | OfPacket(e1,e2,idx,n) ->
+               let e1' = aux env e1 in
+               let e2' = aux env e2 in
+               let idx' = aux env idx in
+               OfPacket(e1',e2',idx',n)
+           | PkMap((xs,e),es) ->
                let e' = aux env e in
                let es' = List.map (aux env) es in
-               FlatMap((xs,e'),es')
-           | FlatReduce((x,y,e0),init,e) ->
+               PkMap((xs,e'),es')
+           | PkReduce((x,y,e0),init,e) ->
                let e0' = aux env e0 in
                let init' = aux env init in
                let e' = aux env e in
-               FlatReduce((x,y,e0'),init',e'))
+               PkReduce((x,y,e0'),init',e')
+           | PkScan((x,y,e0),init,e) ->
+               let e0' = aux env e0 in
+               let init' = aux env init in
+               let e' = aux env e in
+               PkScan((x,y,e0'),init',e'))
     | Macro c ->
         Macro
           (match c with
@@ -197,31 +232,36 @@ let map f env e =
                let e1' = aux env e1 in
                let e2' = aux env e2 in
                LazyAnd(e1',e2')
-           | Map (f,es) ->
-               let es' = List.map (aux env) es in
-               Map (f,es')
-           | Reduce (f,init,e) ->
+           | OCamlArrayReduce(n,f,init,e) ->
                let init' = aux env init in
                let e' = aux env e in
-               Reduce(f,init',e')
-           | ArrayUpdate{arr;idx;e} ->
-               let arr' = aux env arr in
-               let idx' = aux env idx in
-               let e' = aux env e in
-               ArrayUpdate{arr = arr' ; idx = idx' ; e = e'}
-           | OCamlArrayReduceBy(n,f,init,e) ->
+               OCamlArrayReduce(n,f,init',e')
+           | OCamlArrayMap(n,f,src,dst) ->
+               let src' = aux env src in
+               let dst' = aux env dst in
+               OCamlArrayMap(n,f,src',dst')
+           | OCamlArrayScan(n,f,init,e,dst) ->
                let init' = aux env init in
                let e' = aux env e in
-               OCamlArrayReduceBy(n,f,init',e')
-           | OCamlArrayIterBy(n,f,e) ->
+               let dst' = aux env dst in
+               OCamlArrayScan(n,f,init',e',dst'))
+    | StackPrim c ->
+       StackPrim
+         (match c with
+          | Push(xs,e) ->
                let e' = aux env e in
-               OCamlArrayIterBy(n,f,e')
-           | OCamlArrayFoldLeft(f,init,e) ->
-               let init' = aux env init in
+               Push(xs,e')
+          | Push_arg(e1,e2) ->
+               let e1' = aux env e1 in
+               let e2' = aux env e2 in
+               Push_arg(e1',e2')
+          | LetPop(xs,e) ->
                let e' = aux env e in
-               OCamlArrayFoldLeft(f,init',e')
-           | OCamlArrayMapBy(n,f,e) ->
+               LetPop(xs,e')
+          | Save (q,e) ->
                let e' = aux env e in
-               OCamlArrayMapBy(n,f,e'))
+               Save (q,e')
+          | Restore ->
+               c)
   in
   aux env e

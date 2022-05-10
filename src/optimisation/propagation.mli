@@ -5,5 +5,5 @@
 (** Assume that each identifier binded (by Let/LetFun/LetRec etc.) is unique:
     a renaming of identifiers must be perform on the source code beforehand. *)
 
-val constant_copy_propagation :
+val atom_propagation :
   Ast.TMACLE.circuit -> Ast.TMACLE.circuit

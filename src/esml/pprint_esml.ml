@@ -31,8 +31,8 @@ let rec print_ty fmt ty =
       fprintf fmt ") %s" c;
   | TVar n ->
       fprintf fmt "'a%d" n
-  | TFlatArray (t,n) ->
-      fprintf fmt "flat_array(%a,%d)" print_ty ty n
+  | TPacket (t,n) ->
+      fprintf fmt "packet(%a,%d)" print_ty ty n
 
 
 (* atoms *)
@@ -96,6 +96,8 @@ let pp_op fmt (p:op) : unit =
       pp_unop fmt p
   | Binop p ->
       pp_binop fmt p
+  | If _ ->
+     fprintf fmt "#if_then_else"
   | (FromCaml ty) ->
       fprintf fmt "(#from_caml %a)" print_ty ty
   | (ToCaml ty) ->
@@ -108,14 +110,14 @@ let pp_op fmt (p:op) : unit =
       fprintf fmt "#tag_hd"
   | IsImm ->
       fprintf fmt "#is_imm"
-  | FlatArrayGet ->
-      fprintf fmt "#flat_array_get"
-  | FlatArrayMake _ ->
-      fprintf fmt "#flat_array_make"
+  | PkGet ->
+      fprintf fmt "#pk_get"
+  | PkMake _ ->
+      fprintf fmt "#pk_make"
   | NextField ->
       fprintf fmt "#next_field"
-  | Array_create _ ->
-      fprintf fmt "#array_create"
+  | PkCreate _ ->
+      fprintf fmt "#pk_create"
 
 let parenthesized ~paren fmt (cb:unit -> unit) : unit =
   if paren then fprintf fmt "(";
@@ -172,12 +174,27 @@ let rec pp_instruction fmt (s:inst) =
            fprintf fmt "@[<v 2>%a :=@,%a@]" pp_ident x pp_atom a)
         fmt bs;
       fprintf fmt "@ then@,%a" pp_instruction s
-  | ESML_SetArray ((x,idx,a),s) ->
+  | ESML_PkSet ((x,idx,a),s) ->
       fprintf fmt "@[<v>do %a[%a] := %a"
         pp_ident x
         pp_atom idx
         pp_atom a;
       fprintf fmt "@ then@,%a" pp_instruction s
+  | ESML_stackPrim p ->
+      (match p with
+       | Push(aas,q) ->
+          fprintf fmt "(push [";
+            List.iter (fun (a,_) -> pp_atom fmt a) aas;
+            fprintf fmt "] then continue %a)" pp_state q
+       | LetPop(xs,q) ->
+          fprintf fmt "(pop [";
+            List.iter (fun (x,_) -> pp_ident fmt x) xs;
+            fprintf fmt "] then continue %a)" pp_state q
+       | Save(k,q) ->
+          fprintf fmt "(save %a then continue %a)"
+          pp_state k pp_state q
+       | Restore ->
+          fprintf fmt "(restore())")
 
 and pp_transition fmt ((q,s):transition) : unit =
   fprintf fmt "| %s" q;

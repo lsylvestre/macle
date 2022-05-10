@@ -36,6 +36,8 @@ List.iter (fun (name,(sty,n)) ->
 
   fprintf fmt "function bool_to_std_logic(X : boolean) return std_logic;@,";
 
+  fprintf fmt "function if_int(c : boolean; n : caml_int; m : caml_int) return caml_int;@,";
+
   fprintf fmt "@[<v 2>function compute_address(@[<v>heap_base : caml_value;@,";
   fprintf fmt "address : caml_value;@,";
   fprintf fmt "offset : caml_int) return caml_value;@]@]@,";
@@ -83,6 +85,15 @@ List.iter (fun (name,(sty,n)) ->
   fprintf fmt "end if;@]@,";
   fprintf fmt "end;@]@,";
 
+  fprintf fmt "function if_int(c : boolean; n : caml_int; m : caml_int) return caml_int is@,";
+ fprintf fmt "@[<v 2>begin@,";
+  fprintf fmt "@[<v 2>if c then@,";
+  fprintf fmt "return n;@]@,";
+  fprintf fmt "@[<v 2>else@,";
+  fprintf fmt "return m;@]@,";
+  fprintf fmt "end if;@]@,";
+  fprintf fmt "end;@]@,";
+
   fprintf fmt "@[<v 2>function compute_address(@[<v>heap_base : caml_value;@,";
   fprintf fmt "address : caml_value;@,";
   fprintf fmt "offset : caml_int) return caml_value is@]@,";
@@ -93,13 +104,17 @@ List.iter (fun (name,(sty,n)) ->
   fprintf fmt "end;@]@,";
 
   fprintf fmt "@[<v 2>function size_header(x : caml_value) return caml_int is@,";
+  fprintf fmt "variable r : std_logic_vector(30 downto 0);@,";
   fprintf fmt "@[<v 2>begin@,";
-  fprintf fmt "return signed(\"00000000000\" & x(21 downto 2));@]@,";
+  fprintf fmt "r := \"00000000000\" & x(21 downto 2);@,";
+  fprintf fmt "return signed(r);@]@,";
   fprintf fmt "end;@]@]@,";
 
   fprintf fmt "@[<v 2>function tag_header(x : caml_value) return caml_int is@,";
+  fprintf fmt "variable r : std_logic_vector(30 downto 0);@,";
   fprintf fmt "@[<v 2>begin@,";
-  fprintf fmt "return signed(\"00000000000000000000000\" & x(31 downto 24));@]@,";
+  fprintf fmt "r := \"00000000000000000000000\" & x(31 downto 24);@,";
+  fprintf fmt "return signed(r);@]@,";
   fprintf fmt "end;@]@]@,";
 
   fprintf fmt "function is_imm(x : caml_value) return boolean is@,";
@@ -137,8 +152,8 @@ let conversion_from_vect ty fmt x =
   | TConst TUnit ->
       pp_print_text fmt "UNIT_VALUE"
   | (TPtr _| TVar _) ->  pp_print_text fmt x(* assert false (?) *)
-  | TFlatArray _ ->
-      assert false  (* Flat arrays cannot be converted into OCaml word *)
+  | TPacket _ ->
+      assert false  (* packets cannot be converted into OCaml word *)
 
 let set_result dst ty fmt x =
   let open Typ in
@@ -154,13 +169,14 @@ let set_result dst ty fmt x =
   | TConst TUnit ->
       fprintf fmt "%s <= X\"00000001\"" dst
   | (TPtr _ | TVar _) -> fprintf fmt "%s <= %s" dst x
-  | TFlatArray _ ->
-      assert false (* Flat arrays cannot be returned as result *)
+  | TPacket _ ->
+      assert false (* packets cannot be returned as result *)
 
 let gen_cc fmt (envi,envo,_) (envi',envo',_) name =
   (* assume : ("start",_) in envi && ("rdy",_) in envo *)
   let envi = List.filter (fun (x,_) -> x <> "start") envi in
   let envo = List.filter (fun (x,_) -> x <> "rdy") envo in
+
   fprintf fmt "@[<v>-- AVALON MM-slave wrapper around the core %s IP@," name;
   fprintf fmt "library IEEE;@,";
   fprintf fmt "use IEEE.std_logic_1164.all;@,";
@@ -326,7 +342,7 @@ let t_val ty fmt x =
       fprintf fmt "Bool_val(%s)" x (* Bool_val is used to construct unit value *)
   | (TPtr _ | TVar _) ->
       pp_print_text fmt x
-  | TFlatArray _ ->
+  | TPacket _ ->
       assert false
 
 let val_t ty fmt cb =
@@ -365,7 +381,7 @@ let t_C ty =
   match ty with
   | TConst _ -> "int"
   | (TPtr _ | TVar _) -> "uint32_t"
-  | TFlatArray _ ->
+  | TPacket _ ->
       assert false
 
 let up = String.uppercase_ascii
@@ -374,6 +390,11 @@ let low = String.lowercase_ascii
 let mk_platform_c fmt (envi,envo,_) name =
   let envi = List.filter (fun (x,_) -> x <> "start") envi in
   let envo = List.filter (fun (x,_) -> x <> "rdy") envo in
+  
+
+  if !allow_heap_alloc then 
+    fprintf fmt "#include \"../../../../../omicrob/src/byterun/vm/gc.h\"@,@,";
+
   (* rdy : Control/status register for the custom component *)
   let upName = up name in
   fprintf fmt "@[<v>";
@@ -412,7 +433,21 @@ let mk_platform_c fmt (envi,envo,_) name =
   (* pas très heureux, besoin d'écrire deux fois start,
      sinon à l'instruction suivante, le rdy est potentiellement toujours à 0 *)
 
-  fprintf fmt "@,@,while ( IORD(%s_CC_BASE, %s_CC_CTL) == 0 ); // Wait for rdy@," upName upName;
+  if !allow_heap_alloc then
+    fprintf fmt "@,IOWR(%s_CC_BASE, %s_CC_ALLOC_RDY, 1);" upName upName;
+
+  fprintf fmt "@,@,@[<v 2>while ( IORD(%s_CC_BASE, %s_CC_CTL) == 0 ){ // Wait for rdy@," upName upName;
+  
+  if !allow_heap_alloc then begin
+     fprintf fmt "@[<v 2>if (IORD(%s_CC_BASE, %s_CC_ALLOC_RQ)){@," upName upName;
+     fprintf fmt "value v;@,";
+     fprintf fmt "@,IOWR(%s_CC_BASE, %s_CC_ALLOC_RDY, 0);" upName upName;
+     fprintf fmt "@,OCamlAlloc(v, IORD(%s_CC_BASE, %s_CC_ALLOC_SIZE), IORD(%s_CC_BASE, %s_CC_ALLOC_TAG));@," upName upName upName upName;
+     fprintf fmt "@,IOWR(%s_CC_BASE, %s_CC_ALLOC_RDY, 1);" upName upName;
+     fprintf fmt "@,IOWR(%s_CC_BASE, %s_CC_ALLOC_PTR, v);" upName upName;
+     fprintf fmt "@]@,}"
+  end;
+  fprintf fmt "@]@,}@,";
   fprintf fmt "result = IORD(%s_CC_BASE, %s_CC_RESULT); // Read result@," upName upName;
 
   if !allow_trap then begin
@@ -484,7 +519,7 @@ let rec t_ML fmt ty =
         t_ML fmt) tys x
   | TVar n ->
       fprintf fmt "'a%d" n
-  | TFlatArray _ ->
+  | TPacket _ ->
       assert false
 
 (* Seule la variable de sortie [result] est ramenée vers OCaml.
@@ -495,6 +530,12 @@ let rec t_ML fmt ty =
 
 let mk_platform_ml ?(labels=true) fmt (envi,envo,_) name =
   let envi = List.filter (fun (x,_) -> x <> "start") envi in
+
+  let envi = List.filter (fun (x,_) -> match x with "alloc_ptr" | "alloc_rdy" -> false | _ -> true) envi in
+
+  let envo = List.filter (fun (x,_) -> match x with "alloc_rq" | "alloc_size" | "alloc_tag" -> false | _ -> true) envo in
+
+
   let tres = List.assoc "result" envo in
 
   fprintf fmt "@[<hov>external %s : " (low name);
@@ -502,7 +543,11 @@ let mk_platform_ml ?(labels=true) fmt (envi,envo,_) name =
                 if labels then (fprintf fmt "%s:" (low x));
                 fprintf fmt "%a -> " t_ML t) envi;
   if envi = [] then fprintf fmt "unit -> ";
-  fprintf fmt "%a = \"caml_nios_%s_cc\" %s" t_ML tres  (low name) "[@@noalloc]";
+  fprintf fmt "%a = \"caml_nios_%s_cc\"" t_ML tres  (low name);
+  
+  if not !allow_heap_alloc then
+    pp_print_text fmt " [@@noalloc]";
+  
   fprintf fmt "@]@."
 
 let mk_platform_mli = mk_platform_ml

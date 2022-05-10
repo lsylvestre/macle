@@ -7,6 +7,8 @@ type token =
   | UP_IDENT of (string)
   | UNIT
   | TYPE
+  | TO_PACKET
+  | TO
   | TIMES
   | THEN
   | STRING_LIT of (string)
@@ -15,23 +17,25 @@ type token =
   | SEMICOL
   | RPAREN
   | RIGHT_ARROW
-  | REDUCE
   | REC
   | RBRACKET
   | RAISE
   | QUOTE of (string)
   | PLUS
+  | PK_SCAN
+  | PK_REDUCE
+  | PK_MAP
+  | PK_GET
   | PIPE_RBRACKET
   | PIPE_PIPE
   | PIPE
-  | OF_ARRAY
+  | OF_PACKET
   | OF
   | NOT
   | NEQ
   | MOD
   | MINUS
   | MATCH
-  | MAP
   | LT
   | LPAREN
   | LET
@@ -47,11 +51,16 @@ type token =
   | IDENT of (string)
   | GT
   | GE
+  | FUN
+  | FOR
   | FAILURE
+  | EQEQ
   | EQ
   | EOF
   | ELSE
   | DOT
+  | DONE
+  | DO
   | DIV
   | COMMA
   | COLONEQ
@@ -60,11 +69,11 @@ type token =
   | BOOL_LIT of (bool)
   | BOOL
   | BANG
-  | ARRAY_REDUCE_BY
+  | ARRAY_SCAN
+  | ARRAY_REDUCE
   | ARRAY_MAP
+  | ARRAY_MAKE
   | ARRAY_LENGTH
-  | ARRAY_ITER_BY
-  | ARRAY_FOLD_LEFT
   | AND
 
 (* This exception is raised by the monolithic API functions. *)

@@ -68,7 +68,7 @@ let tailrec e =
          | ArrayAccess { arr ; idx } ->
              aux ~tailpos:false lenv env arr;
              aux ~tailpos:false lenv env idx
-         | (RefAccess e | ArrayLength e) ->
+         | (RefAccess e | ArrayLength e | Ref e) ->
              aux ~tailpos:false lenv env e
          | ArrayAssign{arr;idx;e} ->
              aux ~tailpos:false lenv env arr;
@@ -76,53 +76,55 @@ let tailrec e =
              aux ~tailpos:false lenv env e
          | RefAssign {r;e} ->
              aux ~tailpos:false lenv env r;
+             aux ~tailpos:false lenv env e
+         | ArrayMake {size;e} ->
+             aux ~tailpos:false lenv env size;
              aux ~tailpos:false lenv env e)
-    | FlatArrayOp c ->
+    | PacketPrim c ->
         (match c with
-         | FlatMake es ->
+         | PkMake es ->
              List.iter (aux ~tailpos:false lenv env) es
-         | FlatGet {e;idx} ->
+         | PkGet (e,idx) ->
              aux ~tailpos:false lenv env e;
              aux ~tailpos:false lenv env idx
-         | ArraySub(e,_,_) ->
+         | PkSet (_,idx,e) ->
+             aux ~tailpos:false lenv env idx;
              aux ~tailpos:false lenv env e
-         | FlatMap((xs,e),es) ->
+         | ToPacket(e,idx,_) ->
+             aux ~tailpos:false lenv env e;
+             aux ~tailpos:false lenv env idx
+         | OfPacket(e1,e2,idx,_) ->
+             aux ~tailpos:false lenv env e1;
+             aux ~tailpos:false lenv env e2;
+             aux ~tailpos:false lenv env idx
+         | PkMap((xs,e),es) ->
              aux ~tailpos:false lenv env e;
              List.iter (aux ~tailpos:false lenv env) es
-         | FlatReduce((_,_,e0),init,e) ->
+         | PkReduce((_,_,e0),init,e)
+         | PkScan((_,_,e0),init,e)->
              aux ~tailpos:false lenv env e0;
              aux ~tailpos:false lenv env init;
              aux ~tailpos:false lenv env e)
+    | StackPrim _ ->
+        assert false (* not yet introduced *)
     | Macro c ->
         (match c with
          | LazyOr(e1,e2) | LazyAnd(e1,e2) ->
              aux ~tailpos:false lenv env e1;
              aux ~tailpos lenv env e2
-         | Map (f,es) ->
-             app ~tailpos f env lenv desc loc;
-             List.iter (aux ~tailpos:false lenv env) es
-         | Reduce (f,e1,e2) ->
+         | OCamlArrayMap(_,f,e1,e2) ->
              app ~tailpos f env lenv desc loc;
              aux ~tailpos:false lenv env e1;
              aux ~tailpos:false lenv env e2
-         | ArrayUpdate {arr;idx;e} ->
-             aux ~tailpos:false lenv env arr;
-             aux ~tailpos:false lenv env idx;
-             aux ~tailpos:false lenv env e
-         | OCamlArrayFoldLeft (f,e1,e2) ->
-             app ~tailpos:false f env lenv desc loc;
+         | OCamlArrayReduce(_,f,e1,e2) ->
+             app ~tailpos f env lenv desc loc;
              aux ~tailpos:false lenv env e1;
              aux ~tailpos:false lenv env e2
-         | OCamlArrayReduceBy(_,f,init,e) ->
-             app ~tailpos:false f env lenv desc loc;
-             aux ~tailpos:false lenv env init;
-             aux ~tailpos:false lenv env e
-         | OCamlArrayIterBy(_,f,e) ->
+         | OCamlArrayScan(_,f,e1,e2,e3) ->
              app ~tailpos f env lenv desc loc;
-             aux ~tailpos:false lenv env e
-         | OCamlArrayMapBy(_,f,e) ->
-             app ~tailpos f env lenv desc loc;
-             aux ~tailpos:false lenv env e
+             aux ~tailpos:false lenv env e1;
+             aux ~tailpos:false lenv env e2;
+             aux ~tailpos:false lenv env e3
         )
 
 in aux ~tailpos:true Env.empty Env.empty e

@@ -71,29 +71,64 @@ let rec floating e : exp =
       [],(CamlPrim
       (match c with
        | ArrayAccess{arr;idx} ->
-           ArrayAccess{arr=floating arr;idx=floating idx}
+           let arr = floating arr in
+           let idx = floating idx in
+           ArrayAccess{arr;idx}
        | RefAccess e ->
            RefAccess (floating e)
+       | Ref e -> 
+           Ref (floating e)
        | ArrayLength e ->
            ArrayLength (floating e)
        | RefAssign{r;e} ->
-            RefAssign{r=floating r;e=floating e}
+            let r = floating r in
+            let e = floating e in
+            RefAssign{r;e}
        | ArrayAssign{arr;idx;e} ->
-           ArrayAssign{arr= floating arr;idx=floating idx;e=floating e}),ty)
-    | FlatArrayOp c ->
+           let arr = floating arr in
+           let idx = floating idx in
+           let e = floating e in
+           ArrayAssign{arr;idx;e}
+       | ArrayMake{size;e} ->
+           let size = floating size in
+           let e = floating e in
+           ArrayMake{size;e}),ty)
+    | PacketPrim c ->
         (* todo: faire remonter les liaisons si possible  *)
-        [],(FlatArrayOp
+        [],(PacketPrim
             (match c with
-             | FlatMake es ->
-                 FlatMake (List.map floating es)
-             | FlatGet{e;idx} ->
-                  FlatGet{e = floating e ; idx = floating idx}
-             | ArraySub(e,idx,n) ->
-                  ArraySub(floating e,floating idx,n)
+             | PkMake es ->
+                 PkMake (List.map floating es)
+             | PkGet(e,idx) ->
+                  PkGet(floating e, floating idx)
+             | PkSet(x,idx,e) ->
+                  PkSet(x,floating idx,floating e)
+             | ToPacket(e,idx,n) ->
+                  ToPacket(floating e,floating idx,n)
+             | OfPacket(e1,e2,idx,n) ->
+                  OfPacket(floating e1,floating e2,floating idx,n)
              | _ -> assert false
              ),ty)
     | Macro _ ->
        assert false (* already expanded *)
+    | StackPrim c ->
+       [],(StackPrim 
+             (match c with
+              | Push_arg(e1,e2) ->
+                   let e1' = floating e1 in
+                   let e2' = floating e2 in
+                   Push_arg(e1',e2')
+              | Push(xs,e) -> 
+                   let e' = floating e in
+                   Push(xs,e')
+              | LetPop(xs,e) ->
+                   let e' = floating e in
+                   LetPop(xs,e')                  
+              | Save (q,e) -> 
+                   let e' = floating e in
+                   Save (q,e')
+              | Restore ->
+                   c),ty)
   in
   let bs,e = aux e in
   mk_let bs e

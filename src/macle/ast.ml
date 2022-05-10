@@ -78,6 +78,7 @@ module Make(D : sig type decoration end) = struct
     | Const of const
     | Unop of unop * exp
     | Binop of binop * exp * exp
+    | StackPrim of stack_prim
     | If of exp * exp * exp
     | App of ident * exp list
     | LetRec of ((ident * (ident * decoration) list) * exp) list * exp
@@ -86,35 +87,43 @@ module Make(D : sig type decoration end) = struct
     | Match of exp * case list
     | Raise of predefined_exception
     | CamlPrim of interop
-    | FlatArrayOp of flat_array_op
+    | PacketPrim of packet_prim
     | Macro of macro
+
+  and stack_prim =
+   | Push of (ident * decoration) list * exp
+   | Push_arg of exp * exp
+   | LetPop of (ident * decoration) list * exp
+   | Save of ident * exp
+   | Restore
+
 
   and case = constr * (ident option * decoration) list * exp
 
   and interop =
     | RefAccess of exp
     | RefAssign of  { r:exp ; e:exp }
+    | Ref of exp
     | ArrayAccess of { arr:exp ; idx:exp }
     | ArrayAssign of { arr:exp ; idx:exp ; e:exp }
+    | ArrayMake of { size:exp ; e:exp }
     | ArrayLength of exp
 
-  and flat_array_op =
-    | FlatMake of exp list
-    | FlatGet of {e:exp ; idx:exp}
-    | ArraySub of (exp * exp * int)
-    | FlatMap of ((ident * decoration) list * exp) * exp list
-    | FlatReduce of ((ident * decoration) * (ident * decoration) * exp) * exp * exp
+  and packet_prim =
+    | PkMake of exp list
+    | PkGet of exp * exp
+    | PkSet of ident * exp * exp
+    | ToPacket of (exp * exp * int)
+    | OfPacket of (exp * exp * exp * int)
+    | PkMap of ((ident * decoration) list * exp) * exp list
+    | PkReduce of ((ident * decoration) * (ident * decoration) * exp) * exp * exp
+    | PkScan of ((ident * decoration) * (ident * decoration) * exp) * exp * exp
   and macro =
     | LazyOr of exp * exp
     | LazyAnd of exp * exp
-    | Map of ident * exp list
-    | Reduce of ident * exp * exp
-    | ArrayUpdate of {arr:exp ; idx:exp ; e:exp }
-    | OCamlArrayReduceBy of int * ident * exp * exp (* reduce_by n f init e *)
-    | OCamlArrayIterBy of int * ident * exp
-    | OCamlArrayMapBy of int * ident * exp     (* map over OCaml Array *)
-    | OCamlArrayFoldLeft of ident * exp * exp  (* reduction over OCaml Array *)
-
+    | OCamlArrayMap of int * ident * exp * exp
+    | OCamlArrayReduce of int * ident * exp * exp
+    | OCamlArrayScan of int * ident * exp * exp * exp
 end
 
 (** [TMACLE] : typed AST of the Macle Language *)
@@ -145,12 +154,12 @@ module TMACLE = struct
     | TConstr("list",[t]) -> t
     | _ -> assert false
 
-  let flat_array_ty = function
-    | TFlatArray(t,_) -> t
+  let packet_ty = function
+    | TPacket(t,_) -> t
     | _ -> assert false
 
-  let flat_array_size = function
-    | TFlatArray(_,TSize n) -> n
+  let packet_size = function
+    | TPacket(_,TSize n) -> n
     | _ -> assert false
 
 
@@ -175,7 +184,9 @@ module TMACLE = struct
     | e'::es' -> mk_seq e' (mk_seqs es' e)
 
   let mk_letrec bs e =
-    LetRec(bs,e),ty_of e
+    match bs with
+    | [] -> e
+    | _ -> LetRec(bs,e),ty_of e
 
   let mk_letrec1 x args e1 e2 =
     mk_letrec [((x,args),e1)] e2
@@ -185,6 +196,33 @@ module TMACLE = struct
 
   let mk_app ~ty x args =
     App(x,args),ty
+
+  let mk_pk_map ~ty f e =
+    let tyr = packet_ty (ty_of e) in
+    let x = Gensym.gensym "x" in
+    let body = mk_app ~ty:tyr f [(Var x,ty)] in
+    PacketPrim(PkMap(([(x,ty)],body),[e])),packet_ tyr (TSize (packet_size (ty_of e)))
+
+  let mk_pk_reduce f init e =
+    let ty_element = packet_ty (ty_of e) in
+    let ty_init = ty_of init in
+    let x = Gensym.gensym "x" in
+    let acc = Gensym.gensym "acc" in
+    let body = mk_app ~ty:ty_init f [(Var acc,ty_init);(Var x,ty_element)] in
+    PacketPrim(PkReduce(((acc,ty_init),(x,ty_element),body),init,e)),ty_init
+
+
+  let mk_pk_scan f init e =
+    let ty_element = packet_ty (ty_of e) in
+    let ty_init = ty_of init in
+    let x = Gensym.gensym "x" in
+    let acc = Gensym.gensym "acc" in
+    let body = mk_app ~ty:ty_init f [(Var acc,ty_init);(Var x,ty_element)] in
+
+    PacketPrim(PkScan(((acc,ty_init),(x,ty_element),body),init,e)),packet_ ty_init (TSize (packet_size (ty_of e)))
+
+
+
 
   let mk_binop ~ty op e1 e2 =
     Binop (op,e1,e2),ty
@@ -200,6 +238,16 @@ module TMACLE = struct
 
   let mk_empty_list =
     Const EmptyList
+
+  let mk_ref_access e =
+    match e with
+    | _,TConstr("ref",[ty]) ->
+      CamlPrim (RefAccess e),ty
+    | _ ->
+        assert false
+
+  let mk_ref_assign r e =
+    CamlPrim (RefAssign {r;e}),t_unit
 
   let mk_array_length e =
     CamlPrim (ArrayLength e),t_int
@@ -266,3 +314,4 @@ let typ_of_constructor x =
 let val_of_constructor x =
   let _,n,tys = List.assoc x !env_constructor in
   (n,tys)
+

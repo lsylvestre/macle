@@ -70,7 +70,7 @@ let rec print_ty fmt ty =
       List.iter (fun ty -> print_ty fmt ty; fprintf fmt "->") ts;
       print_ty fmt t;
       fprintf fmt ")"
-  | TFlatArray (t,size) ->
+  | TPacket (t,size) ->
       fprintf fmt "(%a%a) array"
         print_ty t
         print_ty size
@@ -212,6 +212,9 @@ let rec pp_exp fmt (e,ty) =
               pp_exp r
               print_ty (ty_of r)
               pp_exp e
+        | Ref e ->
+            fprintf fmt "(ref (%a : %a))"
+              pp_exp e print_ty (ty_of e)
         | ArrayAccess{arr;idx} ->
             fprintf fmt "(%a : %a).(%a)"
               pp_exp arr
@@ -227,27 +230,49 @@ let rec pp_exp fmt (e,ty) =
             fprintf fmt "(Array.length (%a : %a))"
               pp_exp e
               print_ty (ty_of e)
+        | ArrayMake{size;e} ->
+            fprintf fmt "(Array.make %a (%a : %a))"
+              pp_exp size
+              pp_exp e
+              print_ty (ty_of e)
       )
-  | FlatArrayOp c ->
+  | PacketPrim c ->
       ( match c with
-        | FlatMake es ->
+        | PkMake es ->
             fprintf fmt "[|";
             pp_print_list
               ~pp_sep:(fun fmt () -> fprintf fmt "; ") pp_exp fmt es;
             fprintf fmt "|]";
-        | FlatGet {e;idx} ->
+        | PkGet (e,idx) ->
             fprintf fmt "(Array.get %a %a)" pp_exp e pp_exp idx
-        | ArraySub(e,idx,n) ->
+        | PkSet(x,idx,e) ->
+            fprintf fmt "(Array.set %a %a %a)" pp_ident x pp_exp idx pp_exp e
+        | ToPacket(e,idx,n) ->
             fprintf fmt "(Array.sub %a %a %d)" pp_exp e pp_exp idx n
-        | FlatMap((xs,e),es) ->
+        | OfPacket(e1,idx,e2,n) ->
+            fprintf fmt "(Array.blit %a 0 %a %a %d)" pp_exp e1 pp_exp idx pp_exp e2 n
+        | PkMap((xs,e),es) ->
             fprintf fmt "(";
             pp_make_map fmt (List.length es);
             pp_ocaml_fun fmt xs pp_exp e;
             pp_print_list
               ~pp_sep:(fun fmt () -> fprintf fmt " ")
               pp_exp fmt es
-        | FlatReduce ((acc,x,e0),init,e) ->
+        | PkReduce ((acc,x,e0),init,e) ->
            fprintf fmt "(Array.fold_left";
+           pp_ocaml_fun fmt [acc;x] pp_exp e0;
+           fprintf fmt " %a %a)"
+             pp_exp init
+             pp_exp e
+        | PkScan ((acc,x,e0),init,e) ->
+           fprintf fmt "(let scan f init a =
+   let dst = Array.make (Array.length a) init in
+   let r = ref init in
+   for i = 0 to Array.length a -1 do
+     r := f !r a.(i);
+     dst.(i) <- !r
+   done;
+   dst in scan ";
            pp_ocaml_fun fmt [acc;x] pp_exp e0;
            fprintf fmt " %a %a)"
              pp_exp init
@@ -259,76 +284,68 @@ let rec pp_exp fmt (e,ty) =
             fprintf fmt "(%a || %a)" pp_exp e1 pp_exp e2
         | LazyAnd(e1,e2) ->
             fprintf fmt "(%a && %a)" pp_exp e1 pp_exp e2
-        | Map(f,es) ->
-            pp_make_map fmt (List.length es);
-            fprintf fmt " %a " pp_ident f;
-            pp_print_list
-              ~pp_sep:(fun fmt () -> fprintf fmt " ")
-              pp_exp fmt es
-        | Reduce (f,init,e) ->
-            fprintf fmt "(Array.fold_left %a %a %a)"
-              pp_ident f
-              pp_exp init
-              pp_exp e
-        | ArrayUpdate {arr ; idx ; e } ->
-            let x = Gensym.gensym "x" in
-            fprintf fmt "(let %a = Array.copy %a in %a.(%a) <- %a; %a)"
-              pp_ident x pp_exp arr
-              pp_ident x pp_exp idx pp_exp e
-              pp_ident x
-        | OCamlArrayIterBy(n,f,e) ->
-            let array_iter = Gensym.gensym "array_iter" in
-            let i = Gensym.gensym "i" in
-            let x = Gensym.gensym "x" in
-            fprintf fmt "(let %a = %a in@," pp_ident x pp_exp e;
-            fprintf fmt "let rec %a %a =@," pp_ident array_iter pp_ident i;
-            fprintf fmt "if Array.length %a - %a < %d then invalid_arg \"array_iter_by\" else@," pp_ident x pp_ident i n;
-            fprintf fmt "%a (Array.sub %a %a %d);@," pp_ident f pp_ident x pp_ident i n;
-            fprintf fmt "if %a < Array.length  %a - %d then@," pp_ident i pp_ident x n;
-            fprintf fmt "%a (%a+%d) in %a 0)" pp_ident array_iter pp_ident i n pp_ident array_iter
-        | OCamlArrayReduceBy(n,f,init,e) -> (* à vérifier *)
-            let array_iter = Gensym.gensym "array_iter" in
-            let i = Gensym.gensym "i" in
-            let acc = Gensym.gensym "acc" in
-            let x = Gensym.gensym "x" in
-            fprintf fmt "(let %a = %a in@," pp_ident x pp_exp e;
-            fprintf fmt "let rec %a %a %a =@,"
-              pp_ident array_iter pp_ident i pp_ident acc;
-            fprintf fmt "if Array.length %a - %a < %d" pp_ident x pp_ident i n;
-            fprintf fmt "then invalid_arg \"array_iter_by\" else@,";
-            fprintf fmt "if %a >= Array.length  %a - %d then@,"
-              pp_ident i pp_ident x n;
-            fprintf fmt "%a else" pp_ident acc;
-            fprintf fmt "%a " pp_ident array_iter;
-            fprintf fmt "(%a %a (Array.sub %a %a %d))"
-              pp_ident acc pp_ident f pp_ident x pp_ident i n;
-            fprintf fmt "(%a+%d) in %a %a 0)"
-              pp_ident i n pp_ident array_iter pp_exp init
-        | OCamlArrayMapBy(n,x,e) ->
+        | OCamlArrayMap(n,f,src,dst) ->
+            let x_src = Gensym.gensym "x" in
             let y = Gensym.gensym "y" in
-            let z = Gensym.gensym "z" in
+            let x_dst = Gensym.gensym "x_dst" in
             let i = Gensym.gensym "i" in
             fprintf fmt "(let %a : %a = %a in@,"
-              pp_ident y print_ty (ty_of e) pp_exp e;
-            fprintf fmt "(Array.iteri ";
-            fprintf fmt "(fun %a %a -> %a.(%a) <- %a (%a.(%a))) %a))"
-              pp_ident i pp_ident z pp_ident y
-              pp_ident i pp_ident x pp_ident y
-              pp_ident i pp_ident y
-        | OCamlArrayFoldLeft(x,acc,e) ->
-            fprintf fmt "(Array.fold_left %a (%a : %a) (%a : %a))"
-              pp_ident x
+              pp_ident y print_ty (ty_of src) pp_exp src;
+            fprintf fmt "(let %a : %a = %a in@,"
+              pp_ident y print_ty (ty_of dst) pp_exp dst;
+            fprintf fmt "(Array.iteri(*%d*) " n;
+            fprintf fmt "(fun %a %a -> %a.(%a) <- %a %a) %a))"
+              pp_ident i pp_ident x_src 
+              pp_ident y pp_ident i 
+              pp_ident f pp_ident x_dst
+              pp_ident y
+        | OCamlArrayReduce(n,f,acc,e) ->
+            fprintf fmt "(Array.fold_left(*%d*) %a (%a : %a) (%a : %a))" n
+              pp_ident f
               pp_exp acc
               print_ty (ty_of acc)
               pp_exp e
               print_ty (ty_of e)
+        | OCamlArrayScan(n,f,init,e,dst) ->
+            fprintf fmt "(let scan init a dst =
+   let r = ref init in
+     for i = 0 to Array.length a -1 do
+       r := %a !r a.(i);
+       dst.(i) <- !r
+     done
+   in scan " pp_ident f;
+           fprintf fmt " %a %a %a)"
+             pp_exp init
+             pp_exp e
+             pp_exp dst
       )
+  | StackPrim(c) ->
+      (match c with
+      | LetPop(xs,e) -> 
+          fprintf fmt "(";
+          List.iter (fun (x,_) -> fprintf fmt "let %a = pop() in@," pp_ident x) xs;
+          pp_exp fmt e;
+          fprintf fmt ")"
+      | Push(xs,e) -> 
+         fprintf fmt "("; 
+          List.iter (fun (x,_) -> fprintf fmt "push %a; " pp_ident x) xs;
+          fprintf fmt " %a)" pp_exp e
+      | Push_arg(e1,e2) -> 
+          fprintf fmt "(push %a; %a)" pp_exp e1 pp_exp e2
+      | Save(q,e) -> 
+          fprintf fmt "(save %a; %a)" pp_ident q pp_exp e
+      | Restore ->
+          fprintf fmt "(restore())")
 
 and pp_transition fmt ((q,xs),e) =
   fprintf fmt "@[<b>%a@ " pp_ident q;
-  pp_print_list
-    ~pp_sep:(fun fmt () -> fprintf fmt "@ ")
-    pp_tyconstr fmt xs;
+  (match xs with 
+  | [] -> 
+    fprintf fmt "()";
+  | _ -> 
+     pp_print_list
+       ~pp_sep:(fun fmt () -> fprintf fmt "@ ")
+       pp_tyconstr fmt xs);
   fprintf fmt " =@]@,";
   pp_exp fmt e;
 
@@ -336,6 +353,26 @@ and pp_tyconstr fmt (x,ty) =
   fprintf fmt "(%a : %a)" pp_ident x print_ty ty
 
 let pp_circuit fmt {x;xs;e} =
+  (* **************************** *)
+  if !Esml2vhdl.allow_stack then (
+    fprintf fmt "@[<v>let stack_env__ : Obj.t list ref = ref []@,";
+    fprintf fmt "@[<v>let stack_trace__ : (unit -> Obj.t) list ref = ref []@,";
+    fprintf fmt "let pop () =@,";
+    fprintf fmt "  match !stack_env__ with@,";
+    fprintf fmt "  | n::t -> stack_env__ := t; (Obj.obj n)@,";
+    fprintf fmt "  | _ -> assert false@,@,";
+
+    fprintf fmt "let push n =@,";
+    fprintf fmt "  stack_env__ := (Obj.repr n)::!stack_env__@,@,";
+
+    fprintf fmt "let save f =@,";
+    fprintf fmt "  stack_trace__ := (fun () -> Obj.repr (f()))::!stack_trace__@,@,";
+
+    fprintf fmt "let restore () =@,";
+    fprintf fmt "  match !stack_trace__ with@,";
+    fprintf fmt "  | f::t -> stack_trace__ := t; Obj.obj (f())@,";
+    fprintf fmt "  | _ -> assert false@,@,");
+  (* **************************** *)
   fprintf fmt "@[<v 2>@[<b>let %a@ " pp_ident x;
   pp_print_list
     ~pp_sep:(fun fmt () -> fprintf fmt "@ ") pp_tyconstr fmt xs;

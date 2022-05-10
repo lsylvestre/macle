@@ -64,27 +64,41 @@ let substitution env (e:exp) =
                ArrayAccess{ arr = aux arr ; idx = aux idx }
            | RefAccess e ->
                RefAccess (aux e)
+           | Ref e -> 
+               Ref (aux e)
            | ArrayLength e ->
                ArrayLength (aux e)
            | RefAssign{r;e} ->
                RefAssign{ r = aux r ; e = aux e }
            | ArrayAssign{arr;idx;e} ->
-               ArrayAssign{ arr = aux arr ; idx = aux idx ; e = aux e })
-    | FlatArrayOp c ->
-      FlatArrayOp
+               ArrayAssign{ arr = aux arr ; idx = aux idx ; e = aux e }
+           | ArrayMake{size;e} -> 
+               let size = aux size in
+               let e = aux e in
+               ArrayMake{size;e})
+    | PacketPrim c ->
+      PacketPrim
         (match c with
-         | FlatMake es ->
-             FlatMake (List.map aux es)
-         | FlatGet{e;idx} ->
-             FlatGet {e = aux e ; idx = aux idx}
-         | ArraySub(e,idx,n) ->
-             ArraySub(aux e,aux idx,n)
-         | FlatMap((xs,e),es) ->
-             FlatMap((xs,aux e),List.map aux es)
-         | FlatReduce((x,y,e0),init,e) ->
-             FlatReduce((x,y,aux e0),aux init,aux e))
+         | PkMake es ->
+             PkMake (List.map aux es)
+         | PkGet(e,idx) ->
+             PkGet (aux e,aux idx)
+         | PkSet(x,idx,e) ->
+             PkSet(x,aux idx,aux e)
+         | ToPacket(e,idx,n) ->
+             ToPacket(aux e,aux idx,n)
+         | OfPacket(e1,e2,idx,n) ->
+             OfPacket(aux e1,aux e2,aux idx,n)
+         | PkMap((xs,e),es) ->
+             PkMap((xs,aux e),List.map aux es)
+         | PkReduce((x,y,e0),init,e) ->
+             PkReduce((x,y,aux e0),aux init,aux e)
+         | PkScan((x,y,e0),init,e) ->
+             PkScan((x,y,aux e0),aux init,aux e))
     | Macro _ ->
         assert false
+    | StackPrim _ ->
+      assert false (* not yet introduced *)
 in aux e
 
 (** [is_fun_type ty] is [true] if [ty] is a functionnal type, else [false]. *)
@@ -190,6 +204,8 @@ let rec inline (rec_call: name list) env (e:exp) : exp =
             let r = inline rec_call env r in
             let e = inline rec_call env e in
             RefAssign{ r ; e }
+        | Ref e ->
+            Ref (inline rec_call env e)
         | ArrayAccess{arr;idx} ->
             let arr = inline rec_call env arr in
             let idx = inline rec_call env idx in
@@ -199,35 +215,55 @@ let rec inline (rec_call: name list) env (e:exp) : exp =
             let idx = inline rec_call env idx in
             let e = inline rec_call env e in
             ArrayAssign{ arr ; idx ; e }
+        | ArrayMake{size;e} ->
+            let size = inline rec_call env size in
+            let e = inline rec_call env e in
+            ArrayMake{size;e}
         | ArrayLength e ->
             let e' = inline rec_call env e in
             ArrayLength(e')
       in
       (CamlPrim c),ty
-  | FlatArrayOp c ->
-      FlatArrayOp
+  | PacketPrim c ->
+      PacketPrim
         (match c with
-         | FlatMake es ->
-             FlatMake (List.map (inline rec_call env) es)
-         | FlatGet{e;idx} ->
+         | PkMake es ->
+             PkMake (List.map (inline rec_call env) es)
+         | PkGet(e,idx) ->
              let e = inline rec_call env e in
              let idx = inline rec_call env idx in
-             FlatGet{e ; idx}
-         | ArraySub(e,idx,n) ->
+             PkGet(e, idx)
+         | PkSet(x,e,idx) ->
+             let idx = inline rec_call env idx in
+             let e = inline rec_call env e in
+             PkSet(x,e,idx)
+         | ToPacket(e,idx,n) ->
              let e' = inline rec_call env e in
              let idx' = inline rec_call env idx in
-             ArraySub(e',idx',n)
-         | FlatMap((xs,e),es) ->
+             ToPacket(e',idx',n)
+         | OfPacket(e1,e2,idx,n) ->
+             let e1' = inline rec_call env e1 in
+             let e2' = inline rec_call env e2 in
+             let idx' = inline rec_call env idx in
+             OfPacket(e1',e2',idx',n)
+         | PkMap((xs,e),es) ->
              let e' = inline rec_call env e in
              let es' = List.map (inline rec_call env) es in
-             FlatMap((xs,e'),es')
-         | FlatReduce((x,y,e0),init,e) ->
+             PkMap((xs,e'),es')
+         | PkReduce((x,y,e0),init,e) ->
              let e0' = inline rec_call env e0 in
              let init' = inline rec_call env init in
              let e' = inline rec_call env e in
-             FlatReduce((x,y,e0'),init',e')),ty
+             PkReduce((x,y,e0'),init',e')
+         | PkScan((x,y,e0),init,e) ->
+             let e0' = inline rec_call env e0 in
+             let init' = inline rec_call env init in
+             let e' = inline rec_call env e in
+             PkScan((x,y,e0'),init',e')),ty
   | Macro _ ->
-      assert false
+      assert false (* already expanded *)
+  | StackPrim _ ->
+      assert false (* not yet introduced *)
 
 let inline_circuit (c : TMACLE.circuit) : TMACLE.circuit =
   {c with e = inline [] [] c.e}

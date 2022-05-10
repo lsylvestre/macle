@@ -3,8 +3,6 @@
 (*                Macle, an automata-based applicative language        *)
 (*                  dedicated to FPGA-programming in OCaml             *)
 (*                                                                     *)
-(*                        (see the AUTHORS file)                       *)
-(*                                                                     *)
 (* ******************************************************************* *)
 
 type lang = PLATFORM
@@ -23,6 +21,8 @@ let flag_show_typed_ast = ref false
 let flag_show_inlined_ast = ref false
 
 let flag_propagation = ref true (* optimisation *)
+let flag_let_floating = ref true
+let flag_enforce_tail_rec = ref false
 
 let flag_simulation_typed = ref false
 let flag_simulation_inlined = ref false
@@ -52,9 +52,10 @@ let () =
                             \ after inlining");
       ("-no-propagation",   Arg.Clear flag_propagation,
                             "disable atom propagation");
-      ("-no-let-floating",   Arg.Clear flag_propagation,
-                            "disable atom propagation");
-
+      ("-no-let-floating",   Arg.Clear flag_let_floating,
+                            "disable let floating");
+      ("-enforce-tail-rec",   Arg.Set flag_enforce_tail_rec,
+                             "enforce recursive functions to tail recursive");
       ("-verb",             Arg.Set flag_verbose,
                             "print additionnal informations");
       ("-vsml2esml",        Arg.Set flag_vsml2esml,
@@ -62,12 +63,12 @@ let () =
                             \ (from VSML to ESML)");
       ("-simul",            Arg.Set flag_simulation_typed,
                             "generate an OCaml program from typed AST");
-      ("-simul-inlined-ast",Arg.Set flag_simulation_inlined,
+      ("-ocaml-backend",    Arg.Set flag_simulation_inlined,
                             "generate an OCaml program from inlined AST");
 
       ("-app",              set_lang PLATFORM,
                             "Macle input (default)");
-      ("-vhdl-only",        Arg.Set flag_vhdl_only,
+      ("-vhdl",             Arg.Set flag_vhdl_only,
                             "generates a VHDL source without other\
                             \ files needed to extend an O2B platform") ]
 
@@ -100,11 +101,13 @@ let parse filename =
           (* initialize heap_access / heap_assign *)
           Esml2vhdl.allow_heap_access := false;
           Esml2vhdl.allow_heap_assign := false;
-
+          Esml2vhdl.allow_trap := false;
+          Esml2vhdl.allow_stack := false;
           if !flag_show_ast then
             Pprint_ast.PP_MACLE.pp_circuit Format.err_formatter c;
 
-          Check_tailrec.check_tailrec c;
+          if !flag_enforce_tail_rec then
+            Check_tailrec.check_tailrec c;
 
           let c = Typing.typing_circuit c in
 
@@ -122,35 +125,40 @@ let parse filename =
 
           let c = Inline.inline_circuit c in
 
+          let c = Anf.anf_circuit c in
+
+          let c = Ast_rename.rename_ast c in
+
           let c = Equations.rewrite_map_circuit c in
 
-          let c = Macle2vsml.macle2vsml c in
+          (* let c = Anf.anf_circuit c in *)
 
           let c = if !flag_propagation
-                  then Propagation.constant_copy_propagation c
+                  then Propagation.atom_propagation c
                   else c
           in
 
-          let c = if !flag_propagation
-                  then Let_floating.circuit_let_floating c
-                  else c
-          in
+          let c = if !flag_let_floating then
+                  Let_floating.circuit_let_floating c else c in
 
+          let c = Derecursivation.derecursivation_circuit c in
+          let c = Anf.anf_circuit c in
           if !flag_show_inlined_ast then
             Pprint_ast.PP_TMACLE.pp_circuit Format.err_formatter c;
 
           let c = if !flag_propagation
-                  then Propagation.constant_copy_propagation c
+                  then Propagation.atom_propagation c
                   else c
           in
 
-          let c = Let_floating.circuit_let_floating c in
+          let c = if !flag_let_floating then
+                  Let_floating.circuit_let_floating c else c in
 
           if !flag_simulation_inlined
           then Ast2ocaml.pp_circuit Format.std_formatter c else
           let c = Ast_rename.rename_ast c in
 
-          let c = Vsml2esml.vsml2esml c
+          let c = Vsml2esml.vsml2esml c;
           in
           mk_vhdl ~labels:false c
         ) circuits;
@@ -178,12 +186,12 @@ let parse filename =
           fprintf fmt "Timer.init() ;;@,@,";
 
         if !Gen_platform.flag_print_compute_time then
-         (fprintf fmt "let chrono f =@,";
-          fprintf fmt "  let t1 = Timer.get_us () in@,";
-          fprintf fmt "  let _ = f () in@,";
-          fprintf fmt "  let t2 = Timer.get_us () in@,";
-          fprintf fmt "  t2-t1 ;;@,@,");
-
+          (fprintf fmt "let chrono f =@,";
+           fprintf fmt "  let t1 = Timer.get_us () in@,";
+           fprintf fmt "  let _ = f () in@,";
+           fprintf fmt "  let t2 = Timer.get_us () in@,";
+           fprintf fmt "  t2-t1 ;;@,@,");
+        
         fprintf fmt "@[<b>";
         pp_print_text fmt main;
         fprintf fmt "@]@]@.";

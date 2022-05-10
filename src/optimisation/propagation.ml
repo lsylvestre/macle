@@ -1,6 +1,6 @@
 open Ast.TMACLE
 
-(* comme [Macle2vsml.is_atom], excepté pour [FlatMake es] *)
+(* comme [Macle2vsml.is_atom], excepté pour [PkMake es] *)
 let rec propageable (e,_) =
   match e with
   | Var _
@@ -9,15 +9,20 @@ let rec propageable (e,_) =
       propageable e
   | Binop(_,e1,e2) ->
       propageable e1 && propageable e2
-  | FlatArrayOp c ->
+  | If(e1,e2,e3) ->
+      propageable e1 && propageable e2 && propageable e3
+  | PacketPrim c ->
       (match c with
-       | FlatGet{e;idx} ->
+       | PkMake _ ->
+           false
+       | PkGet(e,idx) ->
            propageable e && propageable idx
-       | FlatMake _ ->
+       | PkSet _ -> 
+           false 
+       | ToPacket _ | OfPacket _ ->
            false
-       | ArraySub _ ->
+       | PkMap _ | PkReduce _ | PkScan _ -> 
            false
-       | FlatMap _ | FlatReduce _ -> false
         )
   | _ -> false
 
@@ -56,5 +61,5 @@ let propagation (e:exp) =
   Ast_mapper.map mapper Env.empty e
 
 
-let constant_copy_propagation (c : circuit) : circuit =
+let atom_propagation (c : circuit) : circuit =
   {c with e = propagation c.e}

@@ -1,10 +1,9 @@
 CAMLC=ocamlc
 CAMLLEX=ocamllex
-MENHIR=menhir # --explain
+MENHIR=menhir
 CAMLDEP=ocamldep
 
-EXE=compile
-PCF_FLAGS=
+EXE=maclec
 
 INCLUDES=-I src -I src/misc\
          -I src/target\
@@ -43,11 +42,14 @@ OBJS=src/misc/misc.cmo\
      \
      src/middle_end/ast_rename.cmo\
      \
-     src/translations/macle2vsml.cmo\
+     src/middle_end/is_atom.cmo\
+     src/middle_end/derecursivation.cmo\
+     src/translations/anf.cmo\
      src/translations/vsml2esml.cmo\
      \
      src/middle_end/occur.cmo\
      src/middle_end/inline.cmo\
+     src/middle_end/inlining.cmo\
      src/middle_end/macro_expansion.cmo\
      src/middle_end/safe_array_access.cmo\
      \
@@ -58,9 +60,7 @@ OBJS=src/misc/misc.cmo\
      \
      src/macle/parser.cmo\
      src/macle/lexer.cmo\
-     src/macle/main.cmo\
-
-    # src/fsmcomp/debug/main_debug.cmo\
+     src/macle/main.cmo
 
 SRCS=`find src -name "*.ml*"`
 all: prepare src/macle/parser.cmi $(OBJS)
@@ -85,28 +85,17 @@ depend:
 
 include .depend
 
-prepare:
+prepare:	gen
 	mkdir -p gen/rtl/misc
 	mkdir -p gen/c
 	mkdir -p gen/ml
 	mkdir -p gen/apps
 
-
-FILE=
-OPT=
-DST=bench/dst/$(basename $(notdir $(FILE))).vhdl
-test:
-	./compile $(FILE) > $(DST) ; ghdl -a $(DST)
-
-run:
-	echo "-- ./compile $(OPT) $(FILE)\n" > $(FILE).vhdl
-	./compile $(OPT) $(FILE) >> $(FILE).vhdl
-
 clean:	clean-cc
 	rm -f `find . -name "*.cmo"`
 	rm -f `find . -name "*.cmi"`
 	rm -f $(EXE)
-	
+
 clean-cc:	clean-gen-cc prepare
 
 clean-gen-cc:

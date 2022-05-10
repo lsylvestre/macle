@@ -11,9 +11,6 @@ exception Circuit_must_be_first_order of ty
 let ty_of = TMACLE.ty_of
 
 let rec unify loc env t1 t2 =
-  (* List.iter (fun (x,t) -> Format.(fprintf std_formatter "(%s:%a)," x print_ty t)) env;
-  Format.(fprintf std_formatter "unify [ %a | %a ]\n" Types.print_ty t1 Types.print_ty t2);
-  (fun v -> Format.(fprintf std_formatter "---> [ %a | %a ]\n" Types.print_ty t1 Types.print_ty t2); v) @@ *)
   let t1 = canon t1
   and t2 = canon t2 in
   match t1,t2 with
@@ -26,11 +23,11 @@ let rec unify loc env t1 t2 =
   | TVar {contents=(V n)},
     TVar ({contents=V m} as v) ->
       if n = m then () else v := Ty t1
-   | TVar ({contents=Ty t1'}),
-     TVar ({contents=Ty t2'}) ->
+  | TVar ({contents=Ty t1'}),
+    TVar ({contents=Ty t2'}) ->
        unify loc env t1' t2'
-   | TVar ({contents=Ty t'} as v),t
-   | t,TVar ({contents=Ty t'} as v) ->
+  | TVar ({contents=Ty t'} as v),t
+  | t,TVar ({contents=Ty t'} as v) ->
        v := Ty t;
        unify loc env t' t
   | TVar ({contents=V n} as v),t
@@ -42,7 +39,7 @@ let rec unify loc env t1 t2 =
         raise (Cannot_unify(t1,t2,loc));
       List.iter2 (unify loc env) ts1 ts2;
       unify loc env t1 t2
-  | TFlatArray (t,z), TFlatArray (t',z') ->
+  | TPacket (t,z), TPacket (t',z') ->
       unify loc env t t';
       unify loc env z z'
   | TSize n, TSize n' when n = n' ->
@@ -149,6 +146,10 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
            let e' = typ_exp env e in
            unify loc env (ty_of r') (ref_ (ty_of e'));
            TMACLE.CamlPrim(TMACLE.RefAssign{r=r';e=e'}),t_unit
+       | MACLE.Ref e ->
+           let e' = typ_exp env e in
+           let ty = ref_ (ty_of e') in
+           TMACLE.CamlPrim(TMACLE.Ref e'),ty
        | MACLE.ArrayAccess { arr ; idx } ->
            let arr' = typ_exp env arr in
            let idx' = typ_exp env idx in
@@ -167,7 +168,13 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
            let e'= typ_exp env e in
            let v = newvar() in
            unify loc env (ty_of e') (array_ v);
-           TMACLE.CamlPrim (TMACLE.ArrayLength e'),t_int)
+           TMACLE.CamlPrim (TMACLE.ArrayLength e'),t_int
+       | MACLE.ArrayMake { size ; e} ->
+           let size' = typ_exp env size in
+           let e' = typ_exp env e in
+           unify loc env (ty_of size') t_int;
+           let ty = array_ (ty_of e') in
+            TMACLE.CamlPrim(TMACLE.ArrayMake{size=size';e=e'}),ty)
   | MACLE.App(f,es) ->
       let tf = typ_ident loc f env in
       let tr =
@@ -243,9 +250,9 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
       TMACLE.Match(e',cases'),v
   | MACLE.Raise exc ->
       TMACLE.Raise(exc),newvar()
-  | MACLE.FlatArrayOp c ->
+  | MACLE.PacketPrim c ->
       (match c with
-       | FlatMake es ->
+       | PkMake es ->
            let exp_of_typ ty e =
              let e' = typ_exp env e in
              unify loc env ty (ty_of e');
@@ -253,26 +260,80 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
            in
            let v = newvar() in
            let es' = List.map (exp_of_typ v) es in
-           let ty = TFlatArray (v,TSize (List.length es)) in
-           TMACLE.(FlatArrayOp (FlatMake es'),ty)
-       | FlatGet{e;idx} ->
+           let ty = TPacket (v,TSize (List.length es)) in
+           TMACLE.(PacketPrim (PkMake es'),ty)
+       | PkGet(e,idx) ->
            let e' = typ_exp env e in
            let idx' = typ_exp env idx in
            unify loc env t_int (ty_of idx');
            let ty = ty_of e' in
            let v = newvar() in
            let wsize = newvar() in
-           unify loc env ty (TFlatArray(v,wsize));
+           unify loc env ty (TPacket(v,wsize));
            (* todo:check bounds in case of constant index *)
-           TMACLE.(FlatArrayOp (FlatGet{e=e';idx=idx'}),v)
-       | ArraySub(e,idx,n) ->
+           TMACLE.(PacketPrim (PkGet(e',idx')),v)
+       | PkSet (x,idx,e) ->
+           let tx = typ_ident loc x env in
+           let idx' = typ_exp env idx in
+           let e' = typ_exp env e in
+           unify loc env t_int (ty_of idx');
+           let ty = ty_of e' in
+           let wsize = newvar() in
+           unify loc env tx (TPacket(ty,wsize));
+           TMACLE.(PacketPrim (PkSet(x,idx',e')),t_unit)
+       | ToPacket(e,idx,n) ->
            let e' = typ_exp env e in
            let idx' = typ_exp env idx in
-           unify loc env t_int (ty_of idx');
            let v = newvar() in
            unify loc env (ty_of e') (array_ v);
-           TMACLE.(FlatArrayOp (ArraySub(e',idx',n)),(TFlatArray(v,TSize n)))
-       | FlatMap _ | FlatReduce _ -> assert false (* introduced later *)
+           unify loc env t_int (ty_of idx');
+           TMACLE.(PacketPrim (ToPacket(e',idx',n)),(TPacket(v,TSize n)))
+        | OfPacket(e1,e2,idx,n) ->
+           let e1' = typ_exp env e1 in
+           let e2' = typ_exp env e2 in
+           let idx' = typ_exp env idx in
+           let v1 = newvar() in
+           let v2 = newvar() in
+           unify loc env (TPacket(v1,TSize n)) (ty_of e1');
+           unify loc env (array_ v2) (ty_of e2');
+           unify loc env t_int (ty_of idx');
+           TMACLE.(PacketPrim (OfPacket(e1',e2',idx',n)),t_unit)
+       | PkMap((xs,e),es) ->
+           let es' = List.map (typ_exp env) es in
+           let wsize =
+              match es' with
+              | [] -> assert false
+              | e0'::_ ->
+                  let v = newvar() in
+                  let wsize = newvar() in
+                  unify loc env (packet_ v wsize) (ty_of e0');
+                  wsize
+           in
+           let xs' = List.map (fun (x,_) -> (x, newvar())) xs in
+           let e' = typ_exp (xs'@env) e in
+           TMACLE.(PacketPrim(PkMap((xs',e'),es'))), TPacket(ty_of e',wsize)
+       | PkReduce(((acc,_),(x,_),e),init,epk) ->
+          let init' = (typ_exp env) init in
+          let acc' = (acc,ty_of init') in
+          let v = newvar() in
+          let x' = (x,v) in
+          let e' = typ_exp (acc'::x'::env) e in
+          let epk' = (typ_exp env) epk in
+          let wsize = newvar() in
+          unify loc env (packet_ v wsize) (ty_of epk');
+          unify loc env (ty_of init') (ty_of e');
+          TMACLE.(PacketPrim(PkReduce((acc',x',e'),init',epk'))),ty_of init'
+       | PkScan(((acc,_),(x,_),e),init,epk) ->
+          let init' = (typ_exp env) init in
+          let acc' = (acc,ty_of init') in
+          let v = newvar() in
+          let x' = (x,v) in
+          let e' = typ_exp (acc'::x'::env) e in
+          let epk' = (typ_exp env) epk in
+          let wsize = newvar() in
+          unify loc env (packet_ v wsize) (ty_of epk');
+          unify loc env (ty_of init') (ty_of e');
+          TMACLE.(PacketPrim(PkReduce((acc',x',e'),init',epk'))),(packet_ (ty_of init') wsize)
       )
   | MACLE.Macro c ->
       (match c with
@@ -288,66 +349,17 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
            unify loc env (ty_of e1') t_bool;
            unify loc env (ty_of e2') t_bool;
            TMACLE.Macro(LazyAnd(e1',e2')),t_bool
-       | Map(f,es) ->
-           let vs = List.map (fun _ -> newvar()) es in
-           let wsize = newvar() in
-           let es' = List.map (typ_exp env) es in
-           let check_flat_array_of wsize e' ty : unit =
-             unify loc env (flat_array_ ty wsize) (ty_of e')
-           in
-           List.iter2 (check_flat_array_of wsize) es' vs;
+       | MACLE.OCamlArrayMap(n,f,e1,e2) ->
+           let v1 = newvar() in
+           let v2 = newvar() in
+           let e1' = typ_exp env e1 in
+           let e2' = typ_exp env e2 in
+           unify loc env (array_ v1) (ty_of e1');
+           unify loc env (array_ v2) (ty_of e2');
            let tf = typ_ident loc f env in
-           let w = newvar() in
-           unify loc env tf (TFun(vs,w));
-           TMACLE.(Macro(Map(f,es')),flat_array_ w wsize)
-       | Reduce(f,init,e) ->
-           let v = newvar() in
-           let wsize = newvar() in
-           let e' = typ_exp env e in
-           unify loc env (flat_array_ v wsize) (ty_of e');
-           let init' = typ_exp env init in
-           let tyr = ty_of init' in
-           let tf = typ_ident loc f env in
-           unify loc env tf (TFun([tyr;v],tyr));
-           TMACLE.(Macro(Reduce(f,init',e')),tyr)
-       | ArrayUpdate{arr;idx;e} ->
-           let arr' = typ_exp env arr in
-           let idx' = typ_exp env idx in
-           unify loc env t_int (ty_of idx');
-           let e' = typ_exp env e in
-           let ty = ty_of arr' in
-           let wsize = newvar() in
-           unify loc env ty (TFlatArray(ty_of e',wsize));
-           (* todo:check bounds in case of constant index *)
-           TMACLE.(Macro(ArrayUpdate{arr=arr';idx=idx';e=e'})),ty
-       | MACLE.OCamlArrayReduceBy(n,f,init,e) ->
-           let v = newvar() in
-           let e' = typ_exp env e in
-           unify loc env (array_ v) (ty_of e');
-           let init' = typ_exp env init in
-           let tyr = ty_of init' in
-           let tf = typ_ident loc f env in
-           unify loc env tf (TFun([tyr;flat_array_ v (TSize n)],tyr));
-           TMACLE.Macro(TMACLE.OCamlArrayReduceBy(n,f,init',e')),tyr
-       | MACLE.OCamlArrayIterBy(n,f,e) ->
-           let v = newvar() in
-           let e' = typ_exp env e in
-           unify loc env (array_ v) (ty_of e');
-           let tf = typ_ident loc f env in
-           unify loc env tf (TFun([flat_array_ v (TSize n)],t_unit));
-           (* force la transformation à être de la forme 'a -> 'a,
-                puisque le tableau est modifié en place *)
-           TMACLE.Macro(TMACLE.OCamlArrayIterBy(n,f,e')),t_unit
-       | MACLE.OCamlArrayMapBy(n,f,e) ->
-           let v = newvar() in
-           let e' = typ_exp env e in
-           unify loc env (array_ v) (ty_of e');
-           let tf = typ_ident loc f env in
-           unify loc env tf (TFun([v],v));
-           (* force la transformation à être de la forme 'a -> 'a,
-              puisque le tableau est modifié en place *)
-           TMACLE.Macro(TMACLE.OCamlArrayMapBy(n,f,e')),t_unit
-       | MACLE.OCamlArrayFoldLeft(f,init,e) ->
+           unify loc env tf (TFun([v1],v2));
+           TMACLE.Macro(TMACLE.OCamlArrayMap(n,f,e1',e2')),t_unit
+       | MACLE.OCamlArrayReduce(n,f,init,e) ->
            let v = newvar() in
            let e' = typ_exp env e in
            unify loc env (array_ v) (ty_of e');
@@ -355,7 +367,20 @@ let rec typ_exp (env : (ident * ty) list) (e,loc) =
            let tyr = ty_of init' in
            let tf = typ_ident loc f env in
            unify loc env tf (TFun([tyr;v],tyr));
-           TMACLE.Macro(TMACLE.OCamlArrayFoldLeft(f,init',e')),tyr)
+           TMACLE.Macro(TMACLE.OCamlArrayReduce(n,f,init',e')),tyr
+       | MACLE.OCamlArrayScan(n,f,init,e,dst) ->
+           let v = newvar() in
+           let e' = typ_exp env e in
+           unify loc env (array_ v) (ty_of e');
+           let dst' = typ_exp env dst in
+           let init' = typ_exp env init in
+           let tyr = ty_of init' in
+           unify loc env (array_ tyr) (ty_of dst');
+           let tf = typ_ident loc f env in
+           unify loc env tf (TFun([tyr;v],tyr));
+           TMACLE.Macro(TMACLE.OCamlArrayScan(n,f,init',e',dst')),t_unit)
+  | MACLE.StackPrim _ ->
+      assert false (* the stack is introduced latter *)
 
 
 let rec canon_exp (desc,ty) =
@@ -411,31 +436,47 @@ let rec canon_exp (desc,ty) =
           | RefAccess e ->
               RefAccess(canon_exp e)
           | RefAssign{r;e} ->
-              RefAssign{r=canon_exp r;e=canon_exp e}
+              let r = canon_exp r in
+              let e = canon_exp e in
+              RefAssign{ r ; e }
+          | Ref e ->
+              Ref (canon_exp e)
           | ArrayAccess{arr;idx} ->
-              ArrayAccess{arr=canon_exp arr;
-                                idx=canon_exp idx}
+              let arr = canon_exp arr in
+              let idx = canon_exp idx in
+              ArrayAccess{ arr ; idx }
           | ArrayAssign{arr;idx;e} ->
-              ArrayAssign{arr=canon_exp arr;
-                                idx=canon_exp idx;
-                                e=canon_exp e}
+              let arr = canon_exp arr in
+              let idx = canon_exp idx in
+              let e = canon_exp e in
+              ArrayAssign{ arr ; idx ; e }
           | ArrayLength e ->
               ArrayLength (canon_exp e)
+          | ArrayMake{size;e} ->
+              let size = canon_exp size in
+              let e = canon_exp e in
+              ArrayMake{ size ; e }
        in
        CamlPrim c'
-  | FlatArrayOp c ->
-      FlatArrayOp
+  | PacketPrim c ->
+      PacketPrim
         (match c with
-         | FlatMake es ->
-             FlatMake (List.map canon_exp es)
-         | FlatGet {e;idx} ->
-             FlatGet {e = canon_exp e ; idx = canon_exp idx}
-         | ArraySub(e,idx,n) ->
-             ArraySub(canon_exp e,canon_exp idx,n)
-         | FlatMap(f,es) ->
-             FlatMap(f,List.map canon_exp es)
-         | FlatReduce(f,init,e) ->
-             FlatReduce(f,canon_exp init,canon_exp e)
+         | PkMake es ->
+             PkMake (List.map canon_exp es)
+         | PkGet(e,idx) ->
+             PkGet(canon_exp e, canon_exp idx)
+         | PkSet (x,idx,e) ->
+             PkSet (x,canon_exp idx, canon_exp e)
+         | ToPacket(e,idx,n) ->
+             ToPacket(canon_exp e,canon_exp idx,n)
+         | OfPacket(e1,e2,idx,n) ->
+             OfPacket(canon_exp e1,canon_exp e2,canon_exp idx,n)
+         | PkMap(f,es) ->
+             PkMap(f,List.map canon_exp es)
+         | PkReduce(f,init,e) ->
+             PkReduce(f,canon_exp init,canon_exp e)
+         | PkScan(f,init,e) ->
+             PkScan(f,canon_exp init,canon_exp e)
         )
   | Macro c ->
       Macro
@@ -444,25 +485,14 @@ let rec canon_exp (desc,ty) =
              LazyOr(canon_exp e1,canon_exp e2)
          | LazyAnd(e1,e2) ->
              LazyAnd(canon_exp e1,canon_exp e2)
-         | Map(f,es) ->
-             Map(f,List.map canon_exp es)
-         | Reduce (f,e1,e2) ->
-             Reduce(f,canon_exp e1,canon_exp e2)
-         | ArrayUpdate {arr;idx;e} ->
-             ArrayUpdate {
-               arr = canon_exp arr ;
-               idx = canon_exp idx ;
-               e = canon_exp e
-             }
-         | OCamlArrayReduceBy(n,f,init,e) ->
-             OCamlArrayReduceBy(n,f,canon_exp init, canon_exp e)
-         | OCamlArrayIterBy(n,f,e) ->
-             OCamlArrayIterBy(n,f, canon_exp e)
-         | OCamlArrayMapBy(n,f,e) ->
-             OCamlArrayMapBy(n,f, canon_exp e)
-         | OCamlArrayFoldLeft(f,e1,e2) ->
-             OCamlArrayFoldLeft(f,canon_exp e1,canon_exp e2))
-
+         | OCamlArrayMap(n,f,e1,e2) ->
+             OCamlArrayMap(n,f, canon_exp e1, canon_exp e2)
+         | OCamlArrayReduce(n,f,e1,e2) ->
+             OCamlArrayReduce(n,f,canon_exp e1,canon_exp e2)
+         | OCamlArrayScan(n,f,init,e,dst) ->
+             OCamlArrayScan(n,f,canon_exp init,canon_exp e,canon_exp dst))
+  | StackPrim _ ->
+      assert false (* the stack is introduced latter *)
 
 let typing_circuit MACLE.{x;xs;e;decoration=loc} =
   try

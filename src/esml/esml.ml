@@ -33,7 +33,16 @@ module ESML (Atom : sig type t end)
     | ESML_continue of state
     | ESML_if of (Atom.t * inst * inst)
     | ESML_do of ((ident * Atom.t) list * inst)
-    | ESML_SetArray of (ident * Atom.t * Atom.t) * inst
+    | ESML_PkSet of (ident * Atom.t * Atom.t) * inst
+    | ESML_stackPrim of stack_prim
+
+  and stack_prim =
+   | Push of (Atom.t * Ty.t) list * state
+   | LetPop of (ident * Ty.t) list * state
+   | Save of state * state
+   | Restore
+
+
   let mk_decl (d:destination) (x,ty) =
     (d,x,ty)
 end
@@ -43,7 +52,7 @@ module Typ = struct
     | TConst of tconst
     | TPtr of name * ty list   (* e.g. int list *)
     | TVar of tvar
-    | TFlatArray of ty * int
+    | TPacket of ty * int
   and tconst = TStd_logic | TBool | TInt | TUnit
   and name = string
   and tvar = int
@@ -87,6 +96,7 @@ module Atom = struct
   type op =
     | Binop of binop
     | Unop of unop
+    | If of Typ.ty
     | FromCaml of Typ.ty  (* usage interne, pas exposé dans le parser *)
     | ToCaml of Typ.ty
     | ComputeAddress
@@ -94,9 +104,9 @@ module Atom = struct
     | TagHd
     | IsImm
     | NextField
-    | FlatArrayGet
-    | FlatArrayMake of Typ.ty
-    | Array_create of int
+    | PkGet
+    | PkMake of Typ.ty
+    | PkCreate of int
   and atom =
     | Var of ident
     | Const of const

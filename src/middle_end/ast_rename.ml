@@ -65,45 +65,75 @@ let r_e ?(unbound_variable_err=true) env e =
         let cases' = List.map (r_case env) cases in
         Match(e0',cases')
 
+    | PacketPrim(PkGet(e,idx)) ->
+        PacketPrim(PkGet(mapper ~default env e,
+                         mapper ~default env idx))
 
-  | FlatArrayOp(FlatMap((xs,e),es)) ->
-      let xs' = List.map (fun (x,t) -> gensym "x",t) xs in
-      let env' = (List.map2 (fun (x,_) (x',_) -> x,x') xs xs')@env in
-      let es' = List.map (mapper ~default env) es in
-      FlatArrayOp(FlatMap((xs',mapper ~default env' e),es'))
-  | FlatArrayOp(FlatReduce(((acc,t1),(y,t2),e0),init,e)) ->
-      let acc' = gensym "acc" in
-      let y' = gensym "y" in
-      let e0' = mapper ~default ((acc,acc')::(y,y')::env) e0 in
-      let e' = mapper ~default ((acc,acc')::(y,y')::env) e in
-      FlatArrayOp(FlatReduce(((acc',t1),(y',t2),e0'),init,e'))
+    | PacketPrim(PkSet(x,idx,e)) ->
+        PacketPrim(PkSet(r_ident env x,
+                         mapper ~default env idx,
+                         mapper ~default env e))
 
-
-  | Macro(OCamlArrayFoldLeft(f,init,e)) ->
-      let init' = mapper ~default env init in
-      let e' = mapper ~default env e in
-      Macro(OCamlArrayFoldLeft(r_ident env f, init', e'))
-  | Macro(OCamlArrayReduceBy(n,f,init,e)) ->
-      let init' = mapper ~default env init in
-      let e' = mapper ~default env e in
-      Macro(OCamlArrayReduceBy(n,r_ident env f, init', e'))
-  | Macro(OCamlArrayIterBy(n,f,e)) ->
-      let e' = mapper ~default env e in
-      Macro(OCamlArrayIterBy(n,r_ident env f, e'))
-  | Macro(OCamlArrayMapBy(n,f,e)) ->
-      let e' = mapper ~default env e in
-      Macro(OCamlArrayMapBy(n,r_ident env f, e'))
-  | Macro(Map(f,es)) ->
-      let es' = List.map (mapper ~default env) es in
-      Macro(Map(r_ident env f, es'))
-  | Macro(Reduce(f,e1,e2)) ->
-      let e1' = mapper ~default env e1 in
-      let e2' = mapper ~default env e2 in
-      Macro(Reduce(r_ident env f, e1', e2'))
+    | PacketPrim(PkMap((xs,e),es)) ->
+        let xs' = List.map (fun (x,t) -> gensym "x",t) xs in
+        let env' = (List.map2 (fun (x,_) (x',_) -> x,x') xs xs')@env in
+        let es' = List.map (mapper ~default env) es in
+        PacketPrim(PkMap((xs',mapper ~default env' e),es'))
+    | PacketPrim(PkReduce(((acc,t1),(y,t2),e0),init,e)) ->
+        let acc' = gensym "acc" in
+        let y' = gensym "y" in
+        let e0' = mapper ~default ((acc,acc')::(y,y')::env) e0 in
+        let init' = mapper ~default ((y,y')::env) init in
+        let e' = mapper ~default ((acc,acc')::(y,y')::env) e in
+        PacketPrim(PkReduce(((acc',t1),(y',t2),e0'),init',e'))
 
 
-  | _ ->
-    fst (default env e)
+    | PacketPrim(PkScan(((acc,t1),(y,t2),e0),init,e)) ->
+        let acc' = gensym "acc" in
+        let y' = gensym "y" in
+        let e0' = mapper ~default ((acc,acc')::(y,y')::env) e0 in
+        let init' = mapper ~default ((y,y')::env) init in
+        let e' = mapper ~default ((acc,acc')::(y,y')::env) e in
+        PacketPrim(PkScan(((acc',t1),(y',t2),e0'),init',e'))
+
+
+    | Macro(OCamlArrayMap(n,f,e1,e2)) ->
+        let e1' = mapper ~default env e1 in
+        let e2' = mapper ~default env e2 in
+        Macro(OCamlArrayMap(n,r_ident env f, e1',e2'))
+
+    | Macro(OCamlArrayReduce(n,f,init,e)) ->
+        let init' = mapper ~default env init in
+        let e' = mapper ~default env e in
+        Macro(OCamlArrayReduce(n,r_ident env f, init', e'))
+
+    | Macro(OCamlArrayScan(n,f,init,e,dst)) ->
+        let init' = mapper ~default env init in
+        let e' = mapper ~default env e in
+        let dst' = mapper ~default env dst in
+        Macro(OCamlArrayScan(n,r_ident env f, init', e',dst'))
+
+    | StackPrim(LetPop(xs,e0)) ->
+        let xs' = List.map (fun (x,t) -> gensym x,t) xs in
+        let env' = List.map2 (fun (x,_) (x',t) -> (x,x')) xs xs'@env in
+        let e0' = mapper ~default env' e0 in
+        StackPrim(LetPop(xs',e0'))
+    | StackPrim(Push(xs,e)) ->
+        let xs' = List.map (fun (x,t) -> r_ident env x,t) xs in
+        let e' = mapper ~default env e in
+        StackPrim(Push(xs',e'))
+    | StackPrim(Push_arg(a,e)) ->
+        let a' = mapper ~default env a in
+        let e' = mapper ~default env e in
+        StackPrim(Push_arg(a',e'))
+    | StackPrim(Save(q,e)) ->
+        let q' = r_ident env q in
+        let e' = mapper ~default env e in
+        StackPrim(Save(q',e'))
+    | StackPrim Restore ->
+        desc
+    | _ ->
+      fst (default env e)
 in
 Ast_mapper.map mapper env e
 

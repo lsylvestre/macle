@@ -4,7 +4,14 @@ open Format
 
 let allow_heap_access = ref false
 let allow_heap_assign = ref false
+let allow_heap_alloc = ref false
 let allow_trap = ref false
+
+let allow_stack = ref false
+let stack_size_env = ref 200;;
+let stack_size_cont = ref 100;;
+
+let intel_ram_attribut_flag = ref true
 
 let caml_heap_base = "caml_heap_base"
 let avm_rm_readdata = "avm_rm_readdata"
@@ -25,11 +32,15 @@ module At_reset = struct
     | ESML_do(bs,s) ->
         let acc' = List.fold_right (fun (x,_) acc -> S.add x acc) bs acc in
         w_inst acc' s
-    | ESML_SetArray(_,s) ->
+    | ESML_PkSet(_,s) ->
         w_inst acc s
     | ESML_if(a,s1,s2) ->
         let acc' = w_inst acc s1 in
         w_inst acc' s2
+    | ESML_stackPrim(c) -> 
+        match c with
+        | LetPop(xs,_) -> List.fold_right (fun (x,_) acc -> S.add x acc) xs acc
+        | _ -> acc
 
   (* [w_automaton a] compute the set of outputs and local
      variables assigned in the ESML automaton [a] *)
@@ -54,7 +65,7 @@ let c_ty fmt (ty:Typ.t) : unit =
   | TConst TInt -> "caml_int"
   | (TPtr _ | TVar _) ->
        "caml_value"
-  | TFlatArray (ty,size) ->
+  | TPacket (ty,size) ->
     let sty = string_of_ty ty in
     let s = "array_" ^ sty ^ "_" ^ string_of_int size in
     if not @@ List.mem_assoc s !array_defs
@@ -162,6 +173,13 @@ let c_const fmt (c:Atom.const) : unit =
       pp_print_text fmt
         "X\"00000001\"" (* constant 0 as immediate OCaml value *)
 
+let from_caml pp fmt a t =
+  let open Atom in
+  match t with
+ | Typ.TConst TBool -> fprintf fmt "(%a(1) = '1')" pp a
+ | TConst TInt -> fprintf fmt "signed(%a(31 downto 1))" pp a
+ | _ -> pp fmt a
+
 let c_atom env fmt (a:Atom.t) : unit =
   let open Atom in
   let rec pp_atom ~paren fmt a =
@@ -176,6 +194,12 @@ let c_atom env fmt (a:Atom.t) : unit =
         c_const fmt c
     | Prim p ->
      (match p with
+      | (If (Typ.TConst TInt),[a1;a2;a3]) ->
+           fprintf fmt "if_int(%a,%a,%a)"
+           (pp_atom ~paren:true) a1
+           (pp_atom ~paren:true) a2
+           (pp_atom ~paren:true) a3
+      | (If _,_) -> failwith "esml2vhdl : todo"
       | (Binop p,[a1;a2]) ->
         parenthesized ~paren fmt @@ fun () ->
           let f = function Mul -> true | _ -> false in
@@ -205,13 +229,14 @@ let c_atom env fmt (a:Atom.t) : unit =
      | (IsImm,[a]) ->
         fprintf fmt "is_imm(%a)" (pp_atom ~paren:true) a
      | (FromCaml t,[a]) ->
-         (match t with
+         from_caml (pp_atom ~paren:true) fmt a t
+         (* (match t with
          | TConst TBool -> fprintf fmt "(%a(1) = '1')" (pp_atom ~paren:true) a
          | TConst TInt -> fprintf fmt "signed(%a(31 downto 1))" (pp_atom ~paren:true) a
-         | _ -> pp_atom ~paren fmt a)
+         | _ -> pp_atom ~paren fmt a) *)
      | (ToCaml t,[a]) ->
          (match t with (* à vérifier *)
-         | TConst TBool -> fprintf fmt "BOOLEAN_TO_STD_LOGIC(%a)& \"1\"" (pp_atom ~paren:true) a  (* todo *)
+         | TConst TBool -> fprintf fmt "bool_to_std_logic(%a)& \"1\"" (pp_atom ~paren:true) a  (* todo *)
          | TConst TInt -> fprintf fmt "std_logic_vector(%a)& \"1\"" (pp_atom ~paren:true) a
          | _ -> pp_atom ~paren fmt a)
      | (ComputeAddress,[h;addr;ofs]) ->
@@ -219,17 +244,17 @@ let c_atom env fmt (a:Atom.t) : unit =
            (pp_atom ~paren:false) h
            (pp_atom ~paren:false) addr
            (pp_atom ~paren:false) ofs
-     | (FlatArrayMake ty,es) ->
+     | (PkMake ty,es) ->
          fprintf fmt "@[<v 2>%a_create (@," c_ty ty;
          pp_print_list ~pp_sep:(fun fmt () -> fprintf fmt ",@ ") (pp_atom ~paren:false) fmt es;
          fprintf fmt ")@]"
-     | (FlatArrayGet,[a;Const (Int i)]) ->
+     | (PkGet,[a;Const (Int i)]) ->
           fprintf fmt "%a(%d)" (pp_atom ~paren:false) a i
-     | (FlatArrayGet,[a;i]) ->
+     | (PkGet,[a;i]) ->
           fprintf fmt "%a(to_integer(%a))"
             (pp_atom ~paren:false) a
             (pp_atom ~paren:false) i
-     | Array_create n,[a] ->
+     | PkCreate n,[a] ->
           fprintf fmt "(others => %a)" (pp_atom ~paren:false) a
      | NextField,[a] ->
           fprintf fmt "std_logic_vector(unsigned(%a) + to_unsigned(4,31))"
@@ -259,7 +284,7 @@ let rec c_instruction env (dst:ident) fmt (s:inst) : unit =
           bs;
       c_instruction (bs@env) dst fmt s;
       fprintf fmt "@]";
-  | ESML_SetArray((x,idx,a),s) ->
+  | ESML_PkSet((x,idx,a),s) ->
       fprintf fmt "@[%a(to_integer(%a)) <= %a;@,%a@]"
         c_ident x
         (c_atom env) idx
@@ -270,6 +295,32 @@ let rec c_instruction env (dst:ident) fmt (s:inst) : unit =
         (c_atom env) a
         (c_instruction env dst) s1
         (c_instruction env dst) s2
+
+  | ESML_stackPrim c ->
+      assert (!allow_stack);
+      (match c with
+       | Push(xs,q) -> 
+           fprintf fmt "%a_env_pos <= %a_env_pos + %d;@," c_ident dst c_ident dst (* c_ident r c_ident r*) (List.length xs);
+           List.iteri (fun i (a,t) -> 
+            fprintf fmt "%a_env(%a_env_pos + %d) <= %a;@," c_ident dst c_ident dst (* c_ident r c_ident r*) i (c_atom env) (Prim(ToCaml t,[a]))) xs;
+           assign env fmt dst c_state q
+      | LetPop (xs,q) -> 
+           List.iteri (fun i (x,t) ->
+             fprintf fmt "%a <= " c_ident x;
+             from_caml (fun fmt () -> 
+               fprintf fmt "%a_env(%a_env_pos - %d)" c_ident dst c_ident dst (i+1)) fmt () t; (* c_ident r c_ident r*)
+             fprintf fmt ";@,") xs;
+           fprintf fmt "%a_env_pos <= %a_env_pos - %d;@," c_ident dst c_ident dst (List.length xs)(* c_ident r c_ident r*);
+           assign env fmt dst c_state q
+      | Save(q,q') -> 
+           fprintf fmt "%a_trace_pos <= %a_trace_pos + 1;@,"  c_ident dst c_ident dst (* c_ident w c_ident w *);
+           (* fprintf fmt "%a_trace(%a_trace_pos + 1) <= %a;@,"  c_ident dst c_ident dst (* c_ident w c_ident w *) c_state q;*)
+           fprintf fmt "%a_trace(%a_trace_pos) <= %a;@,"  c_ident dst c_ident dst (* c_ident w c_ident w *) c_state q;
+           assign env fmt dst c_state q'
+      | Restore -> 
+           fprintf fmt "%a_trace_pos <= %a_trace_pos - 1;@,"  c_ident dst c_ident dst (* c_ident w c_ident w *);
+           assign env fmt dst (fun fmt () -> fprintf fmt "%a_trace(%a_trace_pos-1)" c_ident dst c_ident dst (* c_ident w c_ident w *)) ())
+
 
 
 let c_transition (dst:state) fmt ((q,s) : transition) : unit =
@@ -294,13 +345,15 @@ let rec default_value fmt (ty:Typ.t) : unit =
       pp_print_text fmt "UNIT_VALUE"
   | (TPtr _ | TVar _) ->
       pp_print_text fmt "X\"00000000\""
-  | TFlatArray (ty,n) ->
+  | TPacket (ty,n) ->
        fprintf fmt "(others=>%a)" default_value ty
 
 let outputs_initial_values =
   let open Atom in
   [ ("rdy",Std_logic One);
-    ("avm_rm_read",Std_logic Zero) ]
+    ("avm_rm_read",Std_logic Zero);
+    ("avm_wm_write",Std_logic Zero);
+    ("alloc_rd",Std_logic Zero); ]
 
 let c_automaton ~(reset:ident) ~(clock:ident) ?(at_reset=[]) (state_var:state) fmt (ts,e) =
   let state_var = vhdl_ident state_var in
@@ -325,8 +378,18 @@ let c_automaton ~(reset:ident) ~(clock:ident) ?(at_reset=[]) (state_var:state) f
   fprintf fmt "end process;@,"
 
 
+let intel_ram_attribut fmt (x:ident) ty =
+  if not !intel_ram_attribut_flag then () else
+  match ty with 
+  | Typ.TPacket (_,size) -> 
+      
+      let s = if size > 16 then "M9K" else "logic" in
+      fprintf fmt "attribute %a of %a : signal is \"%s\";@," c_ident "ramstyle" c_ident x s
+     | _ -> ()
+
 let c_vars_decl d pp fmt vars =
-  List.iter (fun (d',x,ty) -> if d' = d then pp fmt (x,ty)) vars
+  List.iter (fun (d',x,ty) -> 
+                if d' = d then (pp fmt (x,ty); intel_ram_attribut fmt x ty)) vars
 
 let c_var_local fmt (x,ty) =
   fprintf fmt "signal %a : %a;@," c_ident x c_ty ty
@@ -360,6 +423,10 @@ let compile_esml_circuit ?(reset="reset") ?(clock="clk")
   fprintf fmt "end entity;@,";
   fprintf fmt "@[<v 2>architecture RTL of %s is@," name;
 
+  if not !intel_ram_attribut_flag then () else
+    let ramstyle = (* Gensym.gensym *) "ramstyle" in
+    fprintf fmt "attribute %a : string;@," c_ident ramstyle;
+
   c_vars_decl Local c_var_local fmt st;
 
   let state_vars =
@@ -372,6 +439,21 @@ let compile_esml_circuit ?(reset="reset") ?(clock="clk")
     pp_print_list ~pp_sep:(fun fmt () -> fprintf fmt ",@ ") c_state fmt qs;
     fprintf fmt ");@]@,";
     fprintf fmt "signal %s : %s_T;@," sv sv;
+
+    if !allow_stack then (
+           
+      fprintf fmt "type %s_env_T is array (%d downto 0) of caml_value;@," sv !stack_size_env;
+      fprintf fmt "type %s_trace_T is array (%d downto 0) of %s_T;@," sv !stack_size_cont sv;
+
+      fprintf fmt "signal %s_env : %s_env_T;@," sv sv;
+      fprintf fmt "signal %s_trace : %s_trace_T;@," sv sv;
+
+      (* fprintf fmt "attribute ramstyle of %s_env : signal is \"M9K\";@," sv;
+      fprintf fmt "attribute ramstyle of %s_trace : signal is \"M9K\";@," sv;
+*)
+      fprintf fmt "signal %s_env_pos : integer := 0;@," sv;
+      fprintf fmt "signal %s_trace_pos : integer := 0;@," sv
+    )
   )
     state_vars automata;
   fprintf fmt "@]@,";

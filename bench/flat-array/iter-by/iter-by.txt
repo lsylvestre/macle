@@ -1,8 +1,0 @@
-tableau de 1000 éléments.
-
-somme des éléments via une boucle de calcul classique : 280
-
-[iter by 1] ~> 339
-[iter by 10] ~> 120
-[iter by 50] ~> 104
-[iter by 100] ~> 102 (gain de 2,7)

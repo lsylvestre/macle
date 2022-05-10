@@ -3,26 +3,26 @@ open Ast.TMACLE
 let rewrite_map (e:exp) =
   let rec mapper ~default (env:unit) ((desc,ty) as e) =
     match desc with
-    | FlatArrayOp(FlatMap(([x],e),[FlatArrayOp(FlatMap((xs,e'),es)),_]))
+    | PacketPrim(PkMap(([x],e),[PacketPrim(PkMap((xs,e'),es)),_]))
       when Transparent.transparent e' ->
       (* [map (fun x -> e) (map (fun xs -> e') es))]
          ~> [map (fun xs -> let x = e' in e) es]
       *)
         mapper ~default (env:unit) @@
-        (FlatArrayOp(FlatMap((xs,mk_let1 x e' e),es)),ty)
-    | FlatArrayOp(FlatReduce((acc,y,e0),init,(FlatArrayOp(FlatMap(([x],ex),[e])),_))) when Transparent.transparent ex ->
+        (PacketPrim(PkMap((xs,mk_let1 x e' e),es)),ty)
+    | PacketPrim(PkReduce((acc,y,e0),init,(PacketPrim(PkMap(([x],ex),[e])),_))) when Transparent.transparent ex ->
       (* [reduce (fun acc y -> e0) init (map (fun x -> e') e))]
          ~> [reduce (fun acc x -> let y = ex in e0) init e]
       *)
         mapper ~default (env:unit) @@
-        (FlatArrayOp(FlatReduce((acc,x,mk_let1 y ex e0),init,e)),ty)
-    | FlatArrayOp(FlatMap(([x],e),[FlatArrayOp(FlatMake es),_])) ->
+        (PacketPrim(PkReduce((acc,x,mk_let1 y ex e0),init,e)),ty)
+    | PacketPrim(PkMap(([x],e),[PacketPrim(PkMake es),_])) ->
       (* [map (fun x -> e) #[|e1;...en|]]
           ~> [#[|let x = e1 in e;... let x = en in e|]]
       *)
         mapper ~default (env:unit) @@
-        (FlatArrayOp(FlatMake (List.map (fun ex -> mk_let1 x ex e) es)),ty)
-    | FlatArrayOp(FlatReduce((acc,y,e0),init,(FlatArrayOp(FlatMake es),_))) ->
+        (PacketPrim(PkMake (List.map (fun ex -> mk_let1 x ex e) es)),ty)
+    | PacketPrim(PkReduce((acc,y,e0),init,(PacketPrim(PkMake es),_))) ->
       (* [reduce (fun acc y -> e0) init #[|e1;...en|]]
          ~>  let acc = ... (let acc = (let acc = accu
                                        and y = e1 in e0)

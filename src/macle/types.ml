@@ -7,7 +7,7 @@ type ty =
   | TConstr of name * ty list
   | TVar of tvar ref
   | TFun of ty list * ty
-  | TFlatArray of ty * ty(* size *)
+  | TPacket of ty * ty (* size *)
   | TSize of int
 
 and tconst =
@@ -21,14 +21,14 @@ and tvar =
 
 
 
-let list_,ref_,array_, flat_array_ =
+let list_,ref_,array_, packet_ =
   let list_name = "list"
   and ref_name = "ref"
   and array_name = "array" in
   (fun v -> TConstr(list_name,[v])),
   (fun v -> TConstr(ref_name,[v])),
   (fun v -> TConstr(array_name,[v])),
-  (fun v wsize -> TFlatArray(v,wsize))
+  (fun v wsize -> TPacket(v,wsize))
 
 module Tenv = Hashtbl;;
 
@@ -61,8 +61,8 @@ let rec print_ty fmt ty =
       fprintf fmt "->";
       print_ty fmt t;
       fprintf fmt ")"
-  | TFlatArray (ty,z) ->
-      fprintf fmt "(%a%a) flat_array" print_ty ty print_ty z
+  | TPacket (ty,z) ->
+      fprintf fmt "(%a%a) packet" print_ty ty print_ty z
   | TSize n ->
       fprintf fmt "[%d]" n
 
@@ -100,8 +100,8 @@ let rec canon t =
       TFun (List.map canon ts, canon t)
   | TConst _ ->
       t
-  | TFlatArray (ty,size) ->
-      TFlatArray (canon ty,canon size)
+  | TPacket (ty,size) ->
+      TPacket (canon ty,canon size)
   | TSize _ ->
       t
 
@@ -117,7 +117,7 @@ let rec occur n t =
       List.exists (occur n) ts || occur n t
   | TConst _ ->
       false
-  | TFlatArray (ty,size) ->
+  | TPacket (ty,size) ->
        occur n ty || occur n size
   | TSize _ ->
       false

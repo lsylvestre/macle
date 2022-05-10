@@ -2,7 +2,7 @@ open Ast
 open Types
 open TMACLE
 
-let is_atom = Macle2vsml.is_atom
+let is_atom = Is_atom.is_atom
 
 let translate_tconst (tc:tconst) : Esml.Typ.tconst =
   match tc with
@@ -25,10 +25,10 @@ let rec translate_type (t:ty) : Esml.Typ.t =
       Esml.Typ.TPtr(x,List.map translate_type tys)
   | TFun _ ->
       assert false (* functional value must be eliminated before *)
-  | TFlatArray (ty,size) ->
+  | TPacket (ty,size) ->
       (match canon size with
        | TSize n ->
-           Esml.Typ.TFlatArray (translate_type ty,n)
+           Esml.Typ.TPacket (translate_type ty,n)
        | _ -> assert false (* todo: que faire si la taille n'est pas connue *)
      )
   | TSize _ ->
@@ -70,12 +70,14 @@ let rec as_atom (desc,ty) =
       A.Prim(A.Unop(as_unop p),[as_atom e])
   | Binop(p,e1,e2) ->
       A.Prim(A.Binop(as_binop p),[as_atom e1;as_atom e2])
-  | FlatArrayOp c ->
+  | If(e1,e2,e3) ->
+      A.Prim(If (translate_type (ty_of e2)),[as_atom e1;as_atom e2;as_atom e3])
+  | PacketPrim c ->
       (match c with
-      | FlatMake es ->
-          A.Prim(FlatArrayMake (translate_type ty), List.map as_atom es)
-      | FlatGet{e;idx} ->
-          A.Prim(FlatArrayGet,[as_atom e;as_atom idx])
+      | PkMake es ->
+          A.Prim(PkMake (translate_type ty), List.map as_atom es)
+      | PkGet(e,idx) ->
+          A.Prim(PkGet,[as_atom e;as_atom idx])
       | _ -> assert false (* already expanded *))
   | _ -> assert false (* not an atom *)
 
@@ -135,18 +137,35 @@ let rec parallelisable (e,_) =
   | Match(e,cases) ->
       parallelisable e &&
       List.for_all (fun (_,xs,e) -> List.length xs = 0 && parallelisable e) cases
-  | FlatArrayOp c ->
+  | PacketPrim c ->
       (match c with
-       | FlatMake(es) ->
+       | PkMake(es) ->
            List.for_all parallelisable es
-       | FlatGet{e;idx} ->
+       | PkGet(e,idx) ->
            parallelisable e && parallelisable idx
-       | ArraySub _ ->
+       | PkSet _
+       | ToPacket _ 
+       | OfPacket _ ->
            false
-       | FlatMap _ | FlatReduce _ ->
+       | PkMap _ 
+       | PkReduce _ 
+       | PkScan _ ->
            assert false)
   | Macro _ ->
       assert false
+  | StackPrim c ->
+      (match c with
+       | Push(_,e) -> 
+           parallelisable e
+       | Push_arg(e1,e2) ->
+           parallelisable e1 && parallelisable e2
+       | LetPop(_,e) ->
+           parallelisable e
+       | Save(_,e) ->
+           parallelisable e
+       | Restore -> 
+           true
+     ) 
   | _ -> false
 
 (* *********************************** *)
@@ -180,26 +199,56 @@ let access ?(k=fun a -> a) ~idle ~result address ~field ~ty =
                             (result, k @@ Prim(FromCaml (translate_type ty),[var_ "avm_rm_readdata"]))],
                             ESML_continue idle),
                    ESML_continue q)) in
-  let e = ESML_do([("avm_rm_address", compute_adress_ (var_ "caml_heap_base") address field);
+  let s = ESML_do([("avm_rm_address", compute_adress_ (var_ "caml_heap_base") address field);
                    ("avm_rm_read", std_one)],
                   ESML_continue q) in
-  ([t],e)
+  ([t],s)
 
-let assign ~idle ~result address ~field data tv =
+let assign ~idle ~result ?(value=Atom.Const Unit) address ~field data tv =
   Esml2vhdl.allow_heap_assign := true;
   let q = Gensym.gensym "wait_write" in
   let open Esml in
   let open Atom in
   let t = (q, ESML_if(eq_ (var_ "avm_wm_waitrequest") std_zero,
                       ESML_do([("avm_wm_write",Atom.std_zero);
-                               (result, Const Unit)],
+                               (result, value)],
                               ESML_continue idle),
                  ESML_continue q)) in
-  let e = ESML_do([("avm_wm_address", Prim(ComputeAddress,[Var "caml_heap_base"; address ; field]));
+  let s = ESML_do([("avm_wm_address", Prim(ComputeAddress,[Var "caml_heap_base"; address ; field]));
                    ("avm_wm_writedata", Prim(ToCaml (translate_type tv),[data]));
                    ("avm_wm_write",Atom.std_one)],
                   ESML_continue q) in
-  ([t],e)
+  ([t],s)
+
+let alloc ~idle ~result size hd tv = 
+  Esml2vhdl.allow_heap_alloc := true;
+  let open Esml in
+  let open Atom in
+  let q = Gensym.gensym "wait_write" in
+  let t = (q, ESML_if(eq_ (var_ "alloc_rdy") std_one,
+                      ESML_do([("alloc_rq", std_zero);
+                               (result, Prim(ToCaml (translate_type tv),[var_ "alloc_ptr"]))],
+                              ESML_continue idle),
+                 ESML_continue q)) in
+  let s = ESML_do(["alloc_rq", std_one; 
+                   "alloc_size", size;
+                   "alloc_tag", hd], ESML_continue q) in
+  ([t],s)
+(* 
+  let automaton
+    q -> 
+      if alloc_rdy = '0' then 
+        do dst := alloc_ptr 
+      else 
+        continue q 
+  end in 
+    do alloc_rq := true 
+    and alloc_size := size 
+    and alloc_hd := hd then 
+    continue q
+
+ *)
+
 
 let case_bind address xs e0 =
   let rec aux ts q i = function
@@ -275,7 +324,7 @@ and c_e env idle result e : Esml.inst m =
         if List.for_all (function (_,[],_) -> true | _ -> false) cases then ret @@ ESML_continue idle else
         let x = Gensym.gensym "x" in
         let q = Gensym.gensym "q" in
-        let ts2,e2 = access ~idle:q ~result:x a ~field:(Atom.mk_int 0) ~ty:(ty_of e) in
+        let ts2,e2 = access ~idle:q ~result:x a ~field:(Atom.mk_int (-1)) ~ty:(ty_of e) in
         let r = ref [] in
         let rec aux2 ts = function
         | [] -> r := ts; ESML_continue idle
@@ -287,6 +336,7 @@ and c_e env idle result e : Esml.inst m =
               (aux2 ts cases)
         | (c,xs,e)::cases ->
             let e0,ts' = case_bind a xs e in
+            (* debug : ESML_do([result,(Atom.Prim(TagHd,[Var x]))],ESML_continue idle) *)
             ESML_if (eq_ (Prim(TagHd,[Var x])) (Const (Cstr c)),
                      e0,
                      aux2 (ts'@ts) cases)
@@ -392,18 +442,41 @@ and c_e env idle result e : Esml.inst m =
                                (as_atom data) (ty_of data) in
             let* () = out ([],ts,[]) in
             ret e'
+        | Ref e -> 
+            assert (is_atom e);
+            let open Atom in
+            let q = Gensym.gensym "q" in
+            let r = Gensym.gensym "r" in
+            let tv = ty_of e in
+            let ts,e1 = alloc ~idle:q ~result:r Atom.(mk_int 1) Atom.(mk_int 0) tv in
+            let* () = out ([],ts,[]) in
+            let data = as_atom e in
+            let ts,e2 = assign ~idle ~result ~value:(Var r) (var_ r) ~field:Atom.(mk_int 0) data tv in
+            let* () = out ([],(q,e2)::ts,[(Local,r,translate_type ty)]) in
+            ret e1
+        | ArrayMake{size;e} ->
+          assert (is_atom size && is_atom e);
+          let a = as_atom size in
+          let ts,e' = alloc ~idle ~result a Atom.(mk_int 0) (ty_of e) in
+          let* () = out ([],ts,[]) in
+          ret e'
+          (* todo remplir le tableau *)
      )
-  | FlatArrayOp(ArraySub(a,idx,n)) ->
+  | PacketPrim(PkSet(x,idx,e)) ->
+      assert (is_atom idx && is_atom e);
+      ret (ESML_PkSet((x,as_atom idx,as_atom e),ESML_continue idle))
+      (* on pourrait assigner la valeur "()" à la destination *)
+  | PacketPrim(ToPacket(a,idx,n)) ->
       assert (is_atom a && is_atom idx);
       Esml2vhdl.allow_heap_access := true;
       let q = Gensym.gensym "WaitRd" in
       let cnt = Gensym.gensym "cnt" in
       let open Atom in
       let ty = array_ty (ty_of a) in
-      let t = (q, (* [address] must not be free in [t] *)
+      let t = (q,
                (ESML_if(eq_ (var_ "avm_rm_waitrequest") std_zero,
                   ESML_if(lt_ (var_ cnt) (mk_int n),
-                               ESML_SetArray((result ,var_ cnt,Prim(FromCaml (translate_type ty),[var_ "avm_rm_readdata"])),
+                               ESML_PkSet((result,var_ cnt,Prim(FromCaml (translate_type ty),[var_ "avm_rm_readdata"])),
                                           ESML_do([("avm_rm_address", compute_adress_ (var_ "caml_heap_base") (as_atom a) (add_ (as_atom idx) (add_ (var_ cnt) (mk_int 1))));
                                                     (cnt,add_ (var_ cnt) (mk_int 1))],
                                                   ESML_continue q)),
@@ -412,7 +485,7 @@ and c_e env idle result e : Esml.inst m =
                                                   (* (result, var_ data) *) ],
                    ESML_continue idle)),
                   ESML_continue q))) in
-      let s = ESML_do([(result, Prim(Array_create n,[mk_int 0]));
+      let s = ESML_do([(result, Prim(PkCreate n,[mk_int 0]));
                        "avm_rm_address", compute_adress_ (var_ "caml_heap_base") (as_atom a) (as_atom idx);
                        "avm_rm_read",std_one;
                        cnt, (mk_int 0)],
@@ -441,8 +514,63 @@ and c_e env idle result e : Esml.inst m =
 -- ======================================================
 
 *)
-  | FlatArrayOp _ ->
+ | PacketPrim(OfPacket(a1,a2,idx,n)) ->
+      assert (is_atom a1 && is_atom a2 && is_atom idx);
+      Esml2vhdl.allow_heap_assign := true;
+      let q = Gensym.gensym "WaitWrite" in
+      let cnt = Gensym.gensym "cnt" in
+      let open Atom in
+      let ty = packet_ty (ty_of a1) in
+      let t = (q,
+               (ESML_if(eq_ (var_ "avm_wm_waitrequest") std_zero,
+                  ESML_if(lt_ (var_ cnt) (mk_int n),
+                                          ESML_do([("avm_wm_address", compute_adress_ (var_ "caml_heap_base") (as_atom a2) (add_ (as_atom idx) (var_ cnt)));
+                                                   ("avm_wm_writedata",Prim(ToCaml (translate_type ty),[Prim(PkGet,[as_atom a1;var_ cnt])]));
+                                                   (cnt,add_ (var_ cnt) (mk_int 1))],
+                                                  ESML_continue q),
+                                ESML_do([("avm_wm_write", std_zero);
+                                         (result, Atom.Const Unit) ],
+                   ESML_continue idle)),
+                  ESML_continue q))) in
+      let s = ESML_do(["avm_wm_address", compute_adress_ (var_ "caml_heap_base") (as_atom a2) (as_atom idx);
+                       "avm_wm_writedata",Prim(ToCaml (translate_type ty),[Prim(PkGet,[as_atom a1;mk_int 0])]);
+                       "avm_wm_write",std_one;
+                       cnt, (mk_int 1)],
+                       ESML_continue q) in
+      let* () = out ([],[t],[(Local,cnt,TConst TInt)]) in
+      ret s
+  | PacketPrim _ ->
       assert false
+  | StackPrim c ->
+         (match c with
+          | Push(xs,e) -> 
+               let q = Gensym.gensym "q" in
+               let* e' = c_e env idle result e in
+               let t = (q,e') in
+               let* () = out ([],[t],[]) in
+               ret @@ ESML_stackPrim (Push(List.map (fun (x,t) -> (Atom.Var x,translate_type t)) xs,q))
+          | Push_arg(a,e) -> 
+               assert (is_atom a);
+               let q = Gensym.gensym "q" in
+               let* e' = c_e env idle result e in
+               let t = (q,e') in
+               let* () = out ([],[t],[]) in
+               ret @@ ESML_stackPrim (Push([as_atom a,translate_type (ty_of a)],q))
+          | LetPop(xs,e) -> 
+               let q = Gensym.gensym "q" in
+               let* e' = c_e env idle result e in
+               let t = (q,e') in
+               let xs' = List.map (fun (x,t) -> x,translate_type t) xs in
+               let* () = out ([],[t],List.map (fun (x,t) -> Local,x,t) xs') in
+               ret @@ ESML_stackPrim (LetPop(xs',q))
+          | Save (q,e) -> 
+               let q' = Gensym.gensym "q" in
+               let* e' = c_e env idle result e in
+               let t = (q',e') in
+               let* () = out ([],[t],[]) in
+               ret @@ ESML_stackPrim (Save (q,q'))
+          | Restore ->
+               ret @@ ESML_stackPrim Restore)
   | _ ->
       assert (is_atom e);
       assert false
@@ -472,9 +600,19 @@ let vsml2esml TMACLE.{x;xs;decoration;e} =
       (Out,"avm_wm_write",Typ.TConst TStd_logic)::
       (In,"avm_wm_waitrequest",Typ.TConst TStd_logic)::extra
     else extra in
+
+   let extra =
+    if !Esml2vhdl.allow_heap_alloc then
+      (In,"alloc_rdy", Typ.TConst TStd_logic)::
+      (Out,"alloc_rq", Typ.TConst TStd_logic)::
+      (Out,"alloc_size",Typ.TConst TInt)::
+      (Out,"alloc_tag",Typ.TConst TInt)::
+      (In,"alloc_ptr",ptr)::extra
+    else extra in
+
   let extra = if !Esml2vhdl.allow_trap
               then (Out,"trap",Typ.TConst TInt)::extra else extra in
   let vars = List.map (fun (x,t) -> (In,x,translate_type t)) xs @
-            s' @
-            extra in
+              s' @
+              extra in
   {x;vars; body =fsm::ps}
