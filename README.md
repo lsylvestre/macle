@@ -10,12 +10,6 @@ to configure an Intel FPGA (with Quartus 15.1 and latter).
 
 (see INSTALL.md)
 
-### tool demonstration
-
-(see DEMO.md)
-# macle-benchmarks
-
-
 #### use Macle
 
 ```
