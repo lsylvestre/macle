@@ -1,11 +1,9 @@
-circuit gcd a b = 
+circuit gcd m n = 
   let rec loop a b =
     if a < b then loop a (b-a) else
     if a > b then loop (a-b) a else a 
-  in loop a b
+  in loop m n
 
 ;;;;
 
-let n = 10_000_000;;
-
-print_int (gcd 1 n);;
+print_int (gcd 36 200);;

@@ -103,3 +103,9 @@ clean-gen-cc:
 
 check-cc:
 	(cd gen; make check)
+
+run:
+	(./$(EXE) $(SRC) -ocaml-backend | ocaml -dsource)
+
+compile:
+	./$(EXE) $(SRC)

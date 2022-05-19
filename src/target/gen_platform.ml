@@ -429,10 +429,6 @@ let mk_platform_c fmt (envi,envo,_) name =
 
   fprintf fmt "@,IOWR(%s_CC_BASE, %s_CC_CTL, 1);" upName upName;
 
-  fprintf fmt "@,IOWR(%s_CC_BASE, %s_CC_CTL, 1); // to be improved" upName upName;
-  (* pas très heureux, besoin d'écrire deux fois start,
-     sinon à l'instruction suivante, le rdy est potentiellement toujours à 0 *)
-
   if !allow_heap_alloc then
     fprintf fmt "@,IOWR(%s_CC_BASE, %s_CC_ALLOC_RDY, 1);" upName upName;
 
@@ -452,7 +448,7 @@ let mk_platform_c fmt (envi,envo,_) name =
 
   if !allow_trap then begin
     fprintf fmt "int trap = IORD(%s_CC_BASE, %s_CC_TRAP); // Read trap@," upName upName;
-    fprintf fmt "if (trap > 0){ caml_raise_failure(\"%s\"); }" upName;
+    fprintf fmt "if (trap > 0){ caml_raise_failure(\"%s\"); }@," upName;
   end;
 
   (* ********************************************************************** *)
@@ -572,9 +568,9 @@ let mk_vhdl_with_cc ?labels ?xs_opt circuit =
   and qsys_dir = "qsys"
   and c_dir   = "c"
   and ml_dir  = "ml" in
-  let desc_name         = dst ^^ rtl_dir ^^  (name ^".vhd")
-  and cc_name           = dst ^^ rtl_dir ^^  (name ^"_cc.vhd")
-  and misc_name         = dst ^^ rtl_dir ^^ "misc" ^^ (name ^ "_misc.vhd")
+  let desc_name         = dst ^^ rtl_dir ^^  (name ^".vhdl")
+  and cc_name           = dst ^^ rtl_dir ^^  (name ^"_cc.vhdl")
+  and misc_name         = dst ^^ rtl_dir ^^ "misc" ^^ (name ^ "_misc.vhdl")
   and bindings_name     = dst ^^ c_dir   ^^  (name ^ "_platform-bindings.c")
   and platform_c_name   = dst ^^ c_dir   ^^  (name ^ "_platform.c")
   and platform_h_name   = dst ^^ c_dir   ^^  (name ^ "_platform.h")

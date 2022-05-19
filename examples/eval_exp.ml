@@ -17,7 +17,7 @@ circuit eval_exp env e =
 ;;;;
 
 let gen_leaf x =
-  if Random.bool () then Int(Random.int 10) else Var x ;;
+  if Random.bool () then Int(1 + Random.int 10) else Var x ;;
 
 let rec gen_exp n x = 
   if n = 0 || Random.int n = 0 then gen_leaf x else Add(gen_exp (n-1) x,gen_exp (n-1) x) ;;

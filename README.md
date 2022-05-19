@@ -14,14 +14,20 @@ to configure an Intel FPGA (with Quartus 15.1 and latter).
 
 ```
 $ make
-$ ./maclec tests/eval_exp.ml 
+$ ./maclec examples/eval_exp.ml
   info: circuit  "eval_exp"  generated in folder gen/.
 
-$ ./maclec tests/eval_exp.ml -simul
+$ ./maclec examples/eval_exp.ml -simul
 
-   # translates the Macle/OCaml source program into an OCaml one.
+   # translates the Macle/OCaml source program 
+     into an OCaml one.
 
-$ ./maclec tests/eval_exp.ml -ocaml-backend
+$ ./maclec examples/eval_exp.ml -ocaml-backend
 
-   # translates the intermediate representation used by the compiler into an OCaml program. 
+   # translates in OCaml the intermediate representation of the Macle/OCaml source program.
+
+$ make run SRC=examples/eval_exp.ml
+
+   # translates in OCaml the intermediate representation of the Macle/OCaml source program
+     and run it in the OCaml toplevel.
 ```

@@ -6,7 +6,7 @@ all:
 	cp -R ../$(SRC) ../$(DST)
 
 	mkdir -p ../$(DST)/rtl/misc
-	for f in rtl/*.vhd rtl/misc/*.vhd; do (cp -R $${f} "../$(DST)/$${f}"); done
+	for f in rtl/*.vhdl rtl/misc/*.vhdl; do (cp -R $${f} "../$(DST)/$${f}"); done
 	for c in c/*platform-bindings.c ;  do (cat $${c} >> ../$(DST)/c/platform-bindings.c); done
 	for c in c/*platform.c;            do (cat $${c} >> ../$(DST)/c/platform.c); done
 	for c in c/*platform.h;            do (cat $${c} >> ../$(DST)/c/platform.h); done
@@ -41,9 +41,9 @@ all:
 
 clean:
 	rm -Rf c ml rtl
-	rm -f  rtl/*.vhd rtl/misc/*.vhd c/*.c  c/*.h  ml/*.ml  ml/*.mli qsys/*_hw.tcl qsys/*_ext.tcl
+	rm -f  rtl/*.vhdl rtl/misc/*.vhdl c/*.c  c/*.h  ml/*.ml  ml/*.mli qsys/*_hw.tcl qsys/*_ext.tcl
 	rm -Rf `find apps -mindepth 1`
 
 check:
-	ghdl -a -fno-color-diagnostics rtl/misc/*.vhd rtl/*.vhd;
+	ghdl -a -fno-color-diagnostics rtl/misc/*.vhdl rtl/*.vhdl;
 	rm -f *.o *.cf
