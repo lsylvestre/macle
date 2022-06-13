@@ -1,12 +1,16 @@
 
-SRC=mini
+SRC=dram
 DST=gen-platform
+
+STACK_SIZE=6400
+HEAP_SIZE=131072
+
 
 all:
 	cp -R ../$(SRC) ../$(DST)
 
 	mkdir -p ../$(DST)/rtl/misc
-	for f in rtl/*.vhdl rtl/misc/*.vhdl; do (cp -R $${f} "../$(DST)/$${f}"); done
+	for f in rtl/*.vhd rtl/misc/*.vhd; do (cp -R $${f} "../$(DST)/$${f}"); done
 	for c in c/*platform-bindings.c ;  do (cat $${c} >> ../$(DST)/c/platform-bindings.c); done
 	for c in c/*platform.c;            do (cat $${c} >> ../$(DST)/c/platform.c); done
 	for c in c/*platform.h;            do (cat $${c} >> ../$(DST)/c/platform.h); done
@@ -22,7 +26,7 @@ all:
 	  D=../$(DST)/apps/`basename $${f} ".ml"`;\
 	  mkdir -p $${D};\
 	  cat $${f} > "$${D}/main.ml";\
-	  echo "PLATFORM_DIR=../..\nOMICROB_OPTS=-no-shortcut-initialization" > "$${D}/config";\
+	  echo "PLATFORM_DIR=../..\nOMICROB_OPTS='-no-shortcut-initialization -stack-size $(STACK_SIZE) -heap-size $(HEAP_SIZE)'" > "$${D}/config";\
 	  echo "../../../_etc/make_makefiles" > "$${D}/make_makefiles";\
 	  chmod 755 "$${D}/make_makefiles";\
 	done
@@ -41,9 +45,9 @@ all:
 
 clean:
 	rm -Rf c ml rtl
-	rm -f  rtl/*.vhdl rtl/misc/*.vhdl c/*.c  c/*.h  ml/*.ml  ml/*.mli qsys/*_hw.tcl qsys/*_ext.tcl
+	rm -f  rtl/*.vhd rtl/misc/*.vhd c/*.c  c/*.h  ml/*.ml  ml/*.mli qsys/*_hw.tcl qsys/*_ext.tcl
 	rm -Rf `find apps -mindepth 1`
 
 check:
-	ghdl -a -fno-color-diagnostics rtl/misc/*.vhdl rtl/*.vhdl;
+	ghdl -a -fno-color-diagnostics rtl/misc/*.vhd rtl/*.vhd;
 	rm -f *.o *.cf

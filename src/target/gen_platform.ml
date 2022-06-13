@@ -99,8 +99,8 @@ List.iter (fun (name,(sty,n)) ->
   fprintf fmt "offset : caml_int) return caml_value is@]@,";
   fprintf fmt "@[<v 2>begin@,";
   fprintf fmt "return @[<v 2>std_logic_vector(@,@[<v>unsigned(heap_base) +@,";
-  fprintf fmt "unsigned(address(19 downto 0)) +@,";
-  fprintf fmt "(unsigned(offset(19 downto 0)) & \"00\")@]@,);@]@]@,";
+  fprintf fmt "unsigned(signed(\"000\" & address(19 downto 0)) +@,";
+  fprintf fmt "(signed(offset(20 downto 0)) & \"00\"))@]@,);@]@]@,";
   fprintf fmt "end;@]@,";
 
   fprintf fmt "@[<v 2>function size_header(x : caml_value) return caml_int is@,";
@@ -568,9 +568,9 @@ let mk_vhdl_with_cc ?labels ?xs_opt circuit =
   and qsys_dir = "qsys"
   and c_dir   = "c"
   and ml_dir  = "ml" in
-  let desc_name         = dst ^^ rtl_dir ^^  (name ^".vhdl")
-  and cc_name           = dst ^^ rtl_dir ^^  (name ^"_cc.vhdl")
-  and misc_name         = dst ^^ rtl_dir ^^ "misc" ^^ (name ^ "_misc.vhdl")
+  let desc_name         = dst ^^ rtl_dir ^^  (name ^".vhd")
+  and cc_name           = dst ^^ rtl_dir ^^  (name ^"_cc.vhd")
+  and misc_name         = dst ^^ rtl_dir ^^ "misc" ^^ (name ^ "_misc.vhd")
   and bindings_name     = dst ^^ c_dir   ^^  (name ^ "_platform-bindings.c")
   and platform_c_name   = dst ^^ c_dir   ^^  (name ^ "_platform.c")
   and platform_h_name   = dst ^^ c_dir   ^^  (name ^ "_platform.h")
