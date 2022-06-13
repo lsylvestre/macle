@@ -1,6 +1,6 @@
 open Format   
    
-let mk_hw_tcl name fmt =
+let mk_hw_tcl name fmt size_for_coding_arguments_id =
   let name_cc = name ^ "_cc" in
   let name_cc_up = String.uppercase_ascii name_cc in
   fprintf fmt "@[<v># TCL File Generated __for__ Component Editor 15.1@,@," ;
@@ -67,7 +67,8 @@ let mk_hw_tcl name fmt =
   fprintf fmt "set_interface_property s0 CMSIS_SVD_VARIABLES \"\"@,"          ;
   fprintf fmt "set_interface_property s0 SVD_ADDRESS_GROUP \"\"@,"            ;
   fprintf fmt "@,"                                                            ;
-  fprintf fmt "add_interface_port s0 avs_s0_address address Input 4@,"        ;
+  fprintf fmt "add_interface_port s0 avs_s0_address address Input %d@,"
+    size_for_coding_arguments_id ;
   fprintf fmt "add_interface_port s0 avs_s0_write write Input 1@,"            ;
   fprintf fmt "add_interface_port s0 avs_s0_writedata writedata Input 32@,"   ;
   fprintf fmt "add_interface_port s0 avs_s0_read read Input 1@,"              ;

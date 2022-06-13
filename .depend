@@ -36,7 +36,7 @@ src/macle/main.cmo : \
     src/middle_end/macro_expansion.cmi \
     src/optimisation/let_floating.cmi \
     src/middle_end/inline.cmi \
-    src/target/gen_platform.cmo \
+    src/target/gen_platform.cmi \
     src/translations/esml2vhdl.cmi \
     src/optimisation/equations.cmi \
     src/middle_end/derecursivation.cmo \
@@ -251,15 +251,21 @@ src/target/gen_hw_tcl.cmo : \
 src/target/gen_hw_tcl.cmx : \
     src/translations/esml2vhdl.cmx
 src/target/gen_platform.cmo : \
+    src/misc/misc.cmo \
     src/target/gen_hw_tcl.cmo \
     src/translations/esml2vhdl.cmi \
     src/esml/esml.cmo \
-    src/macle/ast.cmo
+    src/macle/ast.cmo \
+    src/target/gen_platform.cmi
 src/target/gen_platform.cmx : \
+    src/misc/misc.cmx \
     src/target/gen_hw_tcl.cmx \
     src/translations/esml2vhdl.cmx \
     src/esml/esml.cmx \
-    src/macle/ast.cmx
+    src/macle/ast.cmx \
+    src/target/gen_platform.cmi
+src/target/gen_platform.cmi : \
+    src/esml/esml.cmo
 src/translations/anf.cmo : \
     src/macle/types.cmo \
     src/middle_end/is_atom.cmo \

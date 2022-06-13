@@ -3,7 +3,28 @@ open Esml2vhdl
 
 open Esml
 
-  (* ***************************************** *)
+(* modified at each compiling of a circuit *)
+let size_for_coding_arguments_id = ref 8
+
+let set_nb_arguments_max_per_circuit n =
+  size_for_coding_arguments_id := Misc.log2 n + 1
+
+  
+let bin_of_int d =
+  let pad = !size_for_coding_arguments_id in
+  assert (d >= 0 && pad > 1 && Misc.log2 d < !size_for_coding_arguments_id);
+  let open Bytes in
+  let b = make pad '0' in
+  let rec aux d i =
+    if d >= 0 && i >= 0 then
+      (set b i (Char.chr ((d land 1) + Char.code '0'));
+       aux (d lsr 1) (i-1))
+    else ()
+  in
+  aux d (pad-1);
+  to_string b
+
+(* ***************************************** *)
 
 let flag_print_compute_time = ref false
 let flag_print_compute_time_short = ref false
@@ -126,20 +147,6 @@ List.iter (fun (name,(sty,n)) ->
 
   (* ***************************************** *)
 
-
-let bin_of_int ?(pad=4) d =
-  if d < 0 || pad < 1 then invalid_arg "bin_of_int" else
-  let open Bytes in
-  let b = make pad '0' in
-  let rec aux d i =
-    if d >= 0 && i >= 0 then
-      (set b i (Char.chr ((d land 1) + Char.code '0'));
-       aux (d lsr 1) (i-1))
-    else ()
-  in
-  aux d (pad-1);
-  to_string b
-
 let conversion_from_vect ty fmt x =
   let open Typ in
   match ty with
@@ -184,8 +191,8 @@ let gen_cc fmt (envi,envo,_) (envi',envo',_) name =
   fprintf fmt "use work.misc_%s.all;@,@," name;
   fprintf fmt "@[<v 2>entity avs_%s is@," name;
   fprintf fmt "port (@[< v>";
-  fprintf fmt "@[<v 2>avs_s0_address : in std_logic_vector(3 downto 0)  := (others => '0');@,";
-  fprintf fmt "-- 0000  : control/status register (b1=start, b0=rdy)@,";
+  fprintf fmt "@[<v 2>avs_s0_address : in std_logic_vector(%d downto 0)  := (others => '0');@," (!size_for_coding_arguments_id - 1);
+  fprintf fmt "-- %s  : control/status register (b1=start, b0=rdy)@," (bin_of_int 0);
   let regs = envi'@envo' in
   let len = List.length regs in
   List.iteri (fun i (x,t) ->
@@ -270,12 +277,7 @@ let gen_cc fmt (envi,envo,_) (envi',envo',_) name =
   fprintf fmt "reset => reset_reset,@,";
   fprintf fmt "start => start,@,";
   fprintf fmt "rdy => rdy,@,";
-(*
-  fprintf fmt "avm_rm_address => avm_rm_address,@,";
-  fprintf fmt "avm_rm_read => avm_rm_read,@,";
-  fprintf fmt "avm_rm_readdata => avm_rm_readdata,@,";
-  fprintf fmt "avm_rm_waitrequest => avm_rm_waitrequest,@,";
-  *)
+
   List.iter (fun (x,_) -> fprintf fmt "%s => %s,@," x x) envi;
     pp_print_list
         ~pp_sep:(fun fmt () -> fprintf fmt ",@,")
@@ -293,7 +295,7 @@ let gen_cc fmt (envi,envo,_) (envi',envo',_) name =
   fprintf fmt "@[<v 2>when Idle =>@,";
   fprintf fmt "@[<v 2>if avs_s0_write = '1' then@,";
   fprintf fmt "@[<v 2>case avs_s0_address is@,";
-  fprintf fmt "@[<v 2>when \"0000\" => -- writing CSR asserts start  for one clock period@,";
+  fprintf fmt "@[<v 2>when \"%s\" => -- writing CSR asserts start  for one clock period@," (bin_of_int 0);
   fprintf fmt "start <= '1';@,";
   fprintf fmt "write_state <= StartAsserted;@]@,";
 
@@ -479,17 +481,6 @@ let mk_simul_c fmt (envi,envo,_) name =
         ~pp_sep:(fun fmt () -> fprintf fmt ",@,")
         (fun fmt (x,t) -> fprintf fmt "%s %s" (t_C t) (low x)) fmt envi;
   fprintf fmt "@]){@,";
-   (* fprintf fmt "@[<hov>printf(\"nios_gcd_cc(";
-  pp_print_list
-    ~pp_sep:(fun fmt () -> fprintf fmt ",@,")
-    (fun fmt _ -> fprintf fmt "%s" "%d") fmt envi;
-
-  if !allow_heap_access || !allow_heap_assign then
-    fprintf fmt ", caml_heap_base";      (* todo : cf. O2B list2 : printf("nios_list_reduce_cc(%x)\n", (unsigned int)v); *)
-
-  pp_print_text fmt ")\\n\"";
-  List.iter (fun (x,t) -> fprintf fmt ", %s" (low x)) envi;
-  fprintf fmt ");@]@,";*)
   fprintf fmt "return 1;@]";
   fprintf fmt "@,@]}@,@]@."
 
@@ -629,6 +620,8 @@ let mk_vhdl_with_cc ?labels ?xs_opt circuit =
     (envi,envo,l)
   in
 
+  set_nb_arguments_max_per_circuit (List.length envi);
+  
   set_formatter_out_channel prelude_oc;
   Ast.pprint_code_typ_constr_decl fmt;
   pp_print_flush fmt ();
@@ -666,7 +659,7 @@ let mk_vhdl_with_cc ?labels ?xs_opt circuit =
   pp_print_flush fmt ();
 
   set_formatter_out_channel hw_tcl_oc;
-  Gen_hw_tcl.mk_hw_tcl name fmt;
+  Gen_hw_tcl.mk_hw_tcl name fmt !size_for_coding_arguments_id;
   pp_print_flush fmt ();
 
   set_formatter_out_channel ext_tcl_oc;
@@ -687,3 +680,4 @@ let mk_vhdl_with_cc ?labels ?xs_opt circuit =
   close_out ext_tcl_oc;
 
   Printf.printf "  info: circuit  \"%s\"  generated in folder gen/.\n" name
+    

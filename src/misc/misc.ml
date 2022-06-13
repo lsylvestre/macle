@@ -76,3 +76,6 @@ let copy_file f f' =
   let oc = open_out f' in
   output_bytes oc b;
   close_out oc
+
+let rec log2 n =
+  if n <= 1 then 0 else 1 + log2 (n asr 1)
