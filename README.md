@@ -1,9 +1,13 @@
 # Macle (*ML accelerator*)
 
 A language to program hardware-accelerated functions in ML style,
-and call them from OCaml program running on FPGA via O2B (https://github.com/jserot/O2B).
+and call them from OCaml programs running on FPGA via the O2B (https://github.com/jserot/O2B).
 
-More generally, Macle Compiler produces complete O2B platforms (including VHDL, C, OCaml code and scripts) 
+O2B is an implementation of the OCaml virtual machine targeting a softcore processor designed on a FPGA.
+O2B supports currently the Intel Nios II softcore processor on the Terrasic DE10-Lite Board (Intel Max 10 FPGA)
+with 50K logic elements, 1.6 MB of onchip memory, 64 MB of external memory (SDRAM) and a frequency of 50 Mhz.
+
+Macle Compiler produces complete O2B platforms (including VHDL, C, OCaml code and scripts) 
 to configure an Intel FPGA (with Quartus 15.1 and latter).
 
 ### install 
@@ -30,4 +34,17 @@ $ make run SRC=examples/eval_exp.ml
 
    # translates in OCaml the intermediate representation of the Macle/OCaml source program
      and run it in the OCaml toplevel.
+```
+
+##### measure execution time
+
+```
+$ ./maclec -time exemple/gcd.ml
+```
+
+##### increase the frequency of the Nios II softcore processor by a multiplicative factor 2 or 3
+
+
+```
+$ ./maclec -nios2-freq-multiplier 3  exemple/gcd.ml
 ```

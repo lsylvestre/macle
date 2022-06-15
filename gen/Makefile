@@ -44,9 +44,8 @@ all:
 	(cd ../$(DST) ; make hw-build ; make omicrob ; make bsp)
 
 clean:
-	rm -Rf c ml rtl
+	rm -Rf apps c ml rtl qsys
 	rm -f  rtl/*.vhd rtl/misc/*.vhd c/*.c  c/*.h  ml/*.ml  ml/*.mli qsys/*_hw.tcl qsys/*_ext.tcl
-	rm -Rf `find apps -mindepth 1`
 
 check:
 	ghdl -a -fno-color-diagnostics rtl/misc/*.vhd rtl/*.vhd;

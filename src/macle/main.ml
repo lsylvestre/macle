@@ -1,7 +1,7 @@
 (* ******************************************************************* *)
 (*                                                                     *)
-(*                Macle, an automata-based applicative language        *)
-(*                  dedicated to FPGA-programming in OCaml             *)
+(*                         Macle (ML accelerator)                      *)
+(*             a tool for accelerating OCaml programs on FPGA          *)
 (*                                                                     *)
 (* ******************************************************************* *)
 
@@ -30,9 +30,13 @@ let flag_simulation_inlined = ref false
 let simulation_level = ref 0
 let flag_vsml2esml = ref false
 
+let mult_clock_factor = ref 1
+
 let () =
  let set_lang c =
    Arg.Unit (fun () -> flag_lang := c)
+ and set_int r = 
+   Arg.Int (fun n -> r := n)
  in
  Arg.parse [
       ("-time",            Arg.Set Gen_platform.flag_print_compute_time,
@@ -70,7 +74,12 @@ let () =
                             "Macle input (default)");
       ("-vhdl",             Arg.Set flag_vhdl_only,
                             "generates a VHDL source without other\
-                            \ files needed to extend an O2B platform") ]
+                            \ files needed to extend an O2B platform");
+      ("-nios2-freq-multiplier", 
+                            set_int mult_clock_factor,
+                            "multiply the frequency of the Nios II softcore\
+                            \ processor by the given factor (expected value is\
+                            \ 1, 2 or 3)") ]
 
       add_file "Usage:\n  ./compile files"
 
@@ -98,7 +107,7 @@ let parse filename =
 
     List.iter
      (function c ->
-          (* initialize heap_access / heap_assign *)
+          (* initialize heap_access / heap_assign to none *)
           Esml2vhdl.allow_heap_access := false;
           Esml2vhdl.allow_heap_assign := false;
           Esml2vhdl.allow_trap := false;
@@ -130,8 +139,6 @@ let parse filename =
           let c = Ast_rename.rename_ast c in
 
           let c = Equations.rewrite_map_circuit c in
-
-          (* let c = Anf.anf_circuit c in *)
 
           let c = if !flag_propagation
                   then Propagation.atom_propagation c
@@ -196,7 +203,13 @@ let parse filename =
         pp_print_text fmt main;
         fprintf fmt "@]@]@.";
         pp_print_flush fmt ();
-        close_out app_oc
+        close_out app_oc;
+        
+        let qsys_script_oc = open_out "gen/qsys/platform.tcl" in
+        set_formatter_out_channel qsys_script_oc;
+        Gen_platform_tcl.gen_platform_tcl ~mult_clock_factor:!mult_clock_factor fmt;
+        pp_print_flush fmt ();
+        close_out qsys_script_oc
       );
      close_in ic
   with e ->

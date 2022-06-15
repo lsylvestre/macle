@@ -28,6 +28,7 @@ OBJS=src/misc/misc.cmo\
      src/translations/esml2vhdl.cmo\
      \
      src/target/gen_hw_tcl.cmo\
+     src/target/gen_platform_tcl.cmo\
      src/target/gen_platform.cmo\
      \
      \
@@ -86,10 +87,11 @@ depend:
 include .depend
 
 prepare:	gen
-	mkdir -p gen/rtl/misc
+	mkdir -p gen/apps
 	mkdir -p gen/c
 	mkdir -p gen/ml
-	mkdir -p gen/apps
+	mkdir -p gen/rtl/misc
+	mkdir -p gen/qsys
 
 clean:	clean-cc
 	rm -f `find . -name "*.cmo"`
