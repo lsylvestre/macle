@@ -29,7 +29,8 @@ OBJS=src/misc/misc.cmo\
      \
      src/target/gen_hw_tcl.cmo\
      src/target/gen_platform_tcl.cmo\
-     src/target/gen_platform.cmo\
+     src/target/gen_bsp_update_tcl.cmo\
+     src/target/gen_glue_code.cmo\
      \
      \
      src/esml/pprint_esml.cmo\
@@ -88,6 +89,7 @@ include .depend
 
 prepare:	gen
 	mkdir -p gen/apps
+	mkdir -p gen/bsp
 	mkdir -p gen/c
 	mkdir -p gen/ml
 	mkdir -p gen/rtl/misc

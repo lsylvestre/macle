@@ -15,4 +15,4 @@ let main n =
   with
   | Failure msg -> print_string msg ;;
 
-main 3 ;;
+main 2 ;;

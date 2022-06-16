@@ -48,3 +48,10 @@ $ ./maclec -time exemple/gcd.ml
 ```
 $ ./maclec -nios2-freq-multiplier 3  exemple/gcd.ml
 ```
+
+
+##### Use external memory (SDRAM) by default, or onchip memory with the -onchip option
+
+```
+$ ./maclec -onchip examples/matrix_product.ml 
+```

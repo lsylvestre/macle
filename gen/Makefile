@@ -41,7 +41,15 @@ all:
 
 	qsys-generate --synthesis=VHDL ../$(DST)/qsys/platform.qsys
 
-	(cd ../$(DST) ; make hw-build ; make omicrob ; make bsp)
+	cp bsp/bsp_update.tcl ../$(DST)/bsp/bsp_update.tcl
+
+	(cd ../$(DST); nios2-bsp-update-settings --script=bsp/bsp_update.tcl --bsp-dir=bsp --settings=bsp/settings.bsp)
+
+	(cd ../$(DST) ; make hw-build ; make omicrob ; nios2-bsp-generate-files --bsp-dir=bsp --settings=bsp/settings.bsp)
+
+	echo "\nonchip:\n	nios2-bsp-update-settings --script=bsp/bsp_onchip.tcl --bsp-dir=bsp --settings=bsp/settings.bsp; nios2-bsp-generate-files --bsp-dir=bsp --settings=bsp/settings.bsp\n" >> ../$(DST)/makefile
+
+	echo "sdram:\n	nios2-bsp-update-settings --script=bsp/bsp_sdram.tcl --bsp-dir=bsp --settings=bsp/settings.bsp; nios2-bsp-generate-files --bsp-dir=bsp --settings=bsp/settings.bsp\n" >> ../$(DST)/Makefile
 
 clean:
 	rm -Rf apps c ml rtl qsys

@@ -12,7 +12,7 @@ circuit matrix_product m1 m2 dst =
 
 ;;;;
 
-let n = 50;;
+let n = 30;;
 
 let dst = Array.make_matrix n n 0;;
 
@@ -28,4 +28,18 @@ let init n =
 let m1 = init n ;;
 let m2 = init n ;;
 
-matrix_product m1 m2 dst
+matrix_product m1 m2 dst ;;
+
+
+let show_matrix m =
+  for i = 0 to Array.length m - 1 do
+    for j = 0 to Array.length m - 1 do
+      print_int m.(i).(j);
+      print_string ";"
+    done;
+    print_string "\n"
+  done
+
+;;
+
+if n <= 40 then show_matrix dst;;

@@ -193,34 +193,30 @@ let mk_ext_gen_qsys name fmt =
   fprintf fmt "set_connection_parameter_value cpu.data_master/%s.s0 defaultConnection {0}@," name_cc;
 
   idx := !idx + 1000;
-(*
-  if !Esml2vhdl.allow_heap_access then begin
+ 
+
+  if !Esml2vhdl.allow_heap_access then begin  
     fprintf fmt "add_connection %s.rm onchip_memory.s1 avalon@," name_cc;
     fprintf fmt "set_connection_parameter_value %s.rm/onchip_memory.s1 arbitrationPriority {1}@," name_cc;
-    fprintf fmt "set_connection_parameter_value %s.rm/onchip_memory.s1 baseAddress {0x00020000}@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.rm/onchip_memory.s1 baseAddress {0x10000000}@," name_cc;
     fprintf fmt "set_connection_parameter_value %s.rm/onchip_memory.s1 defaultConnection {0}@," name_cc;
-  end;
-
-  if !Esml2vhdl.allow_heap_access then begin
-    fprintf fmt "add_connection %s.wm onchip_memory.s1 avalon@," name_cc;
-    fprintf fmt "set_connection_parameter_value %s.wm/onchip_memory.s1 arbitrationPriority {1}@," name_cc;
-    fprintf fmt "set_connection_parameter_value %s.wm/onchip_memory.s1 baseAddress {0x00020000}@," name_cc;
-    fprintf fmt "set_connection_parameter_value %s.wm/onchip_memory.s1 defaultConnection {0}@," name_cc;
-  end;
- *)
-  let mem = "sdram" (* onchip_memory *) in
-  if !Esml2vhdl.allow_heap_access then begin
-    fprintf fmt "add_connection %s.rm %s.s1 avalon@," name_cc mem;
-    fprintf fmt "set_connection_parameter_value %s.rm/%s.s1 arbitrationPriority {1}@," name_cc mem;
-    fprintf fmt "set_connection_parameter_value %s.rm/%s.s1 baseAddress {0x00000000}@," name_cc mem;
-    fprintf fmt "set_connection_parameter_value %s.rm/%s.s1 defaultConnection {0}@," name_cc mem;
+    
+    fprintf fmt "add_connection %s.rm/sdram.s1 avalon@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.rm/sdram.s1 arbitrationPriority {1}@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.rm/sdram.s1 baseAddress {0x00000000}@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.rm/sdram.s1 defaultConnection {0}@," name_cc;
   end;
 
   if !Esml2vhdl.allow_heap_assign then begin
-    fprintf fmt "add_connection %s.wm %s.s1 avalon@," name_cc mem;
-    fprintf fmt "set_connection_parameter_value %s.wm/%s.s1 arbitrationPriority {1}@," name_cc mem;
-    fprintf fmt "set_connection_parameter_value %s.wm/%s.s1 baseAddress {0x00000000}@," name_cc mem;
-    fprintf fmt "set_connection_parameter_value %s.wm/%s.s1 defaultConnection {0}@," name_cc mem;
+    fprintf fmt "add_connection %s.wm onchip_memory.s1 avalon@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.wm/onchip_memory.s1 arbitrationPriority {1}@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.wm/onchip_memory.s1 baseAddress {0x07040000}@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.wm/onchip_memory.s1 defaultConnection {0}@," name_cc;
+    
+    fprintf fmt "add_connection %s.wm sdram.s1 avalon@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.wm/sdram.s1 arbitrationPriority {1}@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.wm/sdram.s1 baseAddress {0x00000000}@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.wm/sdram.s1 defaultConnection {0}@," name_cc;
     end;
   
   fprintf fmt "add_connection clk.clk %s.clock clock@," name_cc;

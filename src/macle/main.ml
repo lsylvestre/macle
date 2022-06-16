@@ -32,6 +32,9 @@ let flag_vsml2esml = ref false
 
 let mult_clock_factor = ref 1
 
+let flag_heap_onchip = ref false
+and flag_stack_onchip = ref false
+
 let () =
  let set_lang c =
    Arg.Unit (fun () -> flag_lang := c)
@@ -39,10 +42,10 @@ let () =
    Arg.Int (fun n -> r := n)
  in
  Arg.parse [
-      ("-time",            Arg.Set Gen_platform.flag_print_compute_time,
+      ("-time",            Arg.Set Gen_glue_code.flag_print_compute_time,
                            "instrument the produced code to measure\
                            \ the compute time");
-      ("-time-short",      Arg.Set Gen_platform.flag_print_compute_time_short,
+      ("-time-short",      Arg.Set Gen_glue_code.flag_print_compute_time_short,
                            "variant of the -time option");
       ("-show-ast",         Arg.Set flag_show_ast,
                             "display the syntax tree (AST)\
@@ -79,14 +82,26 @@ let () =
                             set_int mult_clock_factor,
                             "multiply the frequency of the Nios II softcore\
                             \ processor by the given factor (expected value is\
-                            \ 1, 2 or 3)") ]
+                            \ 1, 2 or 3)");
+      ("-heap-onchip",      Arg.Set flag_heap_onchip,
+                            "map the heap section of the nios II target\
+                            \ into onchip memory");  
+      ("-stack-onchip",      Arg.Set flag_stack_onchip,
+                            "map the stack section of the nios II target\
+                             \ into onchip memory");
+      ("-onchip",           Arg.Unit (fun () ->
+                                        flag_heap_onchip := true;
+                                        flag_stack_onchip := true),
+                              "map all sections of the nios II target\
+                             \ into onchip memory"); 
+       ]
 
       add_file "Usage:\n  ./compile files"
 
 let mk_vhdl ?labels ?(with_cc=false) c =
   if !flag_vhdl_only then
     Esml2vhdl.compile_esml_circuit Format.std_formatter c
-  else Gen_platform.mk_vhdl_with_cc ?labels c
+  else Gen_glue_code.mk_vhdl_with_cc ?labels c
 
 let parse filename =
   let ic = open_in filename in
@@ -188,11 +203,11 @@ let parse filename =
         fprintf fmt "let print_int = Serial.write_int ;;@,";
         fprintf fmt "let print_string = Serial.write_string ;;@,@,";
 
-        if !Gen_platform.flag_print_compute_time ||
-           !Gen_platform.flag_print_compute_time_short then
+        if !Gen_glue_code.flag_print_compute_time ||
+           !Gen_glue_code.flag_print_compute_time_short then
           fprintf fmt "Timer.init() ;;@,@,";
 
-        if !Gen_platform.flag_print_compute_time then
+        if !Gen_glue_code.flag_print_compute_time then
           (fprintf fmt "let chrono f =@,";
            fprintf fmt "  let t1 = Timer.get_us () in@,";
            fprintf fmt "  let _ = f () in@,";
@@ -209,7 +224,15 @@ let parse filename =
         set_formatter_out_channel qsys_script_oc;
         Gen_platform_tcl.gen_platform_tcl ~mult_clock_factor:!mult_clock_factor fmt;
         pp_print_flush fmt ();
-        close_out qsys_script_oc
+        close_out qsys_script_oc;
+        
+        let bsp_update_script_oc = open_out "gen/bsp/bsp_update.tcl" in
+        set_formatter_out_channel bsp_update_script_oc;
+        Gen_bsp_update_tcl.gen_bsp_update_tcl 
+          ~heap:!flag_heap_onchip
+          ~stack:!flag_stack_onchip fmt;
+        pp_print_flush fmt ();
+        close_out bsp_update_script_oc
       );
      close_in ic
   with e ->

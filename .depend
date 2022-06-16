@@ -37,7 +37,8 @@ src/macle/main.cmo : \
     src/optimisation/let_floating.cmi \
     src/middle_end/inline.cmi \
     src/target/gen_platform_tcl.cmo \
-    src/target/gen_platform.cmi \
+    src/target/gen_glue_code.cmi \
+    src/target/gen_bsp_update_tcl.cmo \
     src/translations/esml2vhdl.cmi \
     src/optimisation/equations.cmi \
     src/middle_end/derecursivation.cmo \
@@ -57,7 +58,8 @@ src/macle/main.cmx : \
     src/optimisation/let_floating.cmx \
     src/middle_end/inline.cmx \
     src/target/gen_platform_tcl.cmx \
-    src/target/gen_platform.cmx \
+    src/target/gen_glue_code.cmx \
+    src/target/gen_bsp_update_tcl.cmx \
     src/translations/esml2vhdl.cmx \
     src/optimisation/equations.cmx \
     src/middle_end/derecursivation.cmx \
@@ -248,26 +250,28 @@ src/simulation/ast2ocaml.cmi : \
     src/macle/ast.cmo
 src/simulation/sem_esml.cmo :
 src/simulation/sem_esml.cmx :
-src/target/gen_hw_tcl.cmo : \
-    src/translations/esml2vhdl.cmi
-src/target/gen_hw_tcl.cmx : \
-    src/translations/esml2vhdl.cmx
-src/target/gen_platform.cmo : \
+src/target/gen_bsp_update_tcl.cmo :
+src/target/gen_bsp_update_tcl.cmx :
+src/target/gen_glue_code.cmo : \
     src/misc/misc.cmo \
     src/target/gen_hw_tcl.cmo \
     src/translations/esml2vhdl.cmi \
     src/esml/esml.cmo \
     src/macle/ast.cmo \
-    src/target/gen_platform.cmi
-src/target/gen_platform.cmx : \
+    src/target/gen_glue_code.cmi
+src/target/gen_glue_code.cmx : \
     src/misc/misc.cmx \
     src/target/gen_hw_tcl.cmx \
     src/translations/esml2vhdl.cmx \
     src/esml/esml.cmx \
     src/macle/ast.cmx \
-    src/target/gen_platform.cmi
-src/target/gen_platform.cmi : \
+    src/target/gen_glue_code.cmi
+src/target/gen_glue_code.cmi : \
     src/esml/esml.cmo
+src/target/gen_hw_tcl.cmo : \
+    src/translations/esml2vhdl.cmi
+src/target/gen_hw_tcl.cmx : \
+    src/translations/esml2vhdl.cmx
 src/target/gen_platform_tcl.cmo :
 src/target/gen_platform_tcl.cmx :
 src/translations/anf.cmo : \
