@@ -198,7 +198,7 @@ let mk_ext_gen_qsys name fmt =
   if !Esml2vhdl.allow_heap_access then begin  
     fprintf fmt "add_connection %s.rm onchip_memory.s1 avalon@," name_cc;
     fprintf fmt "set_connection_parameter_value %s.rm/onchip_memory.s1 arbitrationPriority {1}@," name_cc;
-    fprintf fmt "set_connection_parameter_value %s.rm/onchip_memory.s1 baseAddress {0x10000000}@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.rm/onchip_memory.s1 baseAddress {0x04020000}@," name_cc;
     fprintf fmt "set_connection_parameter_value %s.rm/onchip_memory.s1 defaultConnection {0}@," name_cc;
     
     fprintf fmt "add_connection %s.rm/sdram.s1 avalon@," name_cc;
@@ -210,7 +210,7 @@ let mk_ext_gen_qsys name fmt =
   if !Esml2vhdl.allow_heap_assign then begin
     fprintf fmt "add_connection %s.wm onchip_memory.s1 avalon@," name_cc;
     fprintf fmt "set_connection_parameter_value %s.wm/onchip_memory.s1 arbitrationPriority {1}@," name_cc;
-    fprintf fmt "set_connection_parameter_value %s.wm/onchip_memory.s1 baseAddress {0x07040000}@," name_cc;
+    fprintf fmt "set_connection_parameter_value %s.wm/onchip_memory.s1 baseAddress {0x04020000}@," name_cc;
     fprintf fmt "set_connection_parameter_value %s.wm/onchip_memory.s1 defaultConnection {0}@," name_cc;
     
     fprintf fmt "add_connection %s.wm sdram.s1 avalon@," name_cc;

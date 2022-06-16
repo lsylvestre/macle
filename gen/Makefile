@@ -47,7 +47,10 @@ all:
 
 	(cd ../$(DST) ; make hw-build ; make omicrob ; nios2-bsp-generate-files --bsp-dir=bsp --settings=bsp/settings.bsp)
 
-	echo "\nonchip:\n	nios2-bsp-update-settings --script=bsp/bsp_onchip.tcl --bsp-dir=bsp --settings=bsp/settings.bsp; nios2-bsp-generate-files --bsp-dir=bsp --settings=bsp/settings.bsp\n" >> ../$(DST)/makefile
+	cp bsp/bsp_onchip.tcl ../$(DST)/bsp/bsp_onchip.tcl
+	cp bsp/bsp_sdram.tcl ../$(DST)/bsp/bsp_sdram.tcl
+
+	echo "\nonchip:\n	nios2-bsp-update-settings --script=bsp/bsp_onchip.tcl --bsp-dir=bsp --settings=bsp/settings.bsp; nios2-bsp-generate-files --bsp-dir=bsp --settings=bsp/settings.bsp\n" >> ../$(DST)/Makefile
 
 	echo "sdram:\n	nios2-bsp-update-settings --script=bsp/bsp_sdram.tcl --bsp-dir=bsp --settings=bsp/settings.bsp; nios2-bsp-generate-files --bsp-dir=bsp --settings=bsp/settings.bsp\n" >> ../$(DST)/Makefile
 
