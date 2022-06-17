@@ -44,6 +44,9 @@ $ $ eval `opam env`
 
 #### install the Macle dependencies
   ```bash
-  $ opam install menhir
+  $ opam install menhir.20210310
   ```
+  
+**MACLE is currently not (yet) compatible with newer versions of menhir**
+
 -----

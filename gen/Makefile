@@ -56,6 +56,7 @@ all:
 
 clean:
 	rm -Rf apps c ml rtl qsys
+	rm -f bsp/bsp_update.tcl
 	rm -f  rtl/*.vhd rtl/misc/*.vhd c/*.c  c/*.h  ml/*.ml  ml/*.mli qsys/*_hw.tcl qsys/*_ext.tcl
 
 check:
