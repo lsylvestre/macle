@@ -1,6 +1,5 @@
 CAMLC=ocamlc
 CAMLLEX=ocamllex
-MENHIR=menhir
 CAMLDEP=ocamldep
 
 EXE=maclec
@@ -13,6 +12,8 @@ INCLUDES=-I src -I src/misc\
          -I src/middle_end\
          -I src/simulation\
          -I src/optimisation
+
+MENHIR=menhir --infer --ocamlc "$(CAMLC) -i $(INCLUDES)"
 
 OBJS=src/misc/misc.cmo\
      src/misc/monads.cmo\
@@ -68,7 +69,7 @@ SRCS=`find src -name "*.ml*"`
 all: prepare src/macle/parser.cmi $(OBJS)
 	$(CAMLC) $(FLAGS) $(INCLUDES) -o $(EXE) $(OBJS)
 
-.SUFFIXES: .mll .mly .ml .mli .cmo .cmi 
+.SUFFIXES: .mll .mly .ml .mli .cmo .cmi
 
 .ml.cmo:
 	$(CAMLC) $(INCLUDES) $(FLAGS) -c $<
@@ -84,10 +85,11 @@ all: prepare src/macle/parser.cmi $(OBJS)
 
 depend:
 	$(CAMLDEP) $(INCLUDES) $(SRCS) > .depend
+	menhir --depend src/macle/parser.mly >> .depend
 
 include .depend
 
-prepare:	gen
+prepare:  gen
 	mkdir -p gen/apps
 	mkdir -p gen/bsp
 	mkdir -p gen/c
@@ -95,12 +97,12 @@ prepare:	gen
 	mkdir -p gen/rtl/misc
 	mkdir -p gen/qsys
 
-clean:	clean-cc
+clean:    clean-cc
 	rm -f `find . -name "*.cmo"`
 	rm -f `find . -name "*.cmi"`
 	rm -f $(EXE)
 
-clean-cc:	clean-gen-cc prepare
+clean-cc: clean-gen-cc prepare
 
 clean-gen-cc:
 	(cd gen; make clean)

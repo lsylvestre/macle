@@ -42,11 +42,9 @@ opam switch create ocaml-base-compiler.4.09.0
 $ $ eval `opam env`
 ```
 
-#### install the Macle dependencies
+#### install Macle dependencies
   ```bash
-  $ opam install menhir.20210310
+  $ opam install menhir
   ```
-  
-**MACLE is currently not (yet) compatible with newer versions of menhir**
 
 -----
