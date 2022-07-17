@@ -182,13 +182,12 @@ let rec pp_instruction fmt (s:inst) =
       fprintf fmt "@ then@,%a" pp_instruction s
   | ESML_stackPrim p ->
       (match p with
-       | Push(aas,q) ->
-          fprintf fmt "(push [";
-            List.iter (fun (a,_) -> pp_atom fmt a) aas;
+       | Push((a,_),q) ->
+            pp_atom fmt a;
             fprintf fmt "] then continue %a)" pp_state q
-       | LetPop(xs,q) ->
+       | LetPop((x,_),q) ->
           fprintf fmt "(pop [";
-            List.iter (fun (x,_) -> pp_ident fmt x) xs;
+            pp_ident fmt x;
             fprintf fmt "] then continue %a)" pp_state q
        | Save(k,q) ->
           fprintf fmt "(save %a then continue %a)"

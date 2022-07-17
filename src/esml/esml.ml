@@ -37,8 +37,8 @@ module ESML (Atom : sig type t end)
     | ESML_stackPrim of stack_prim
 
   and stack_prim =
-   | Push of (Atom.t * Ty.t) list * state
-   | LetPop of (ident * Ty.t) list * state
+   | Push of (Atom.t * Ty.t) * state
+   | LetPop of (ident * Ty.t) * state
    | Save of state * state
    | Restore
 

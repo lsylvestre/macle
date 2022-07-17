@@ -543,26 +543,48 @@ and c_e env idle result e : Esml.inst m =
       assert false
   | StackPrim c ->
          (match c with
-          | Push(xs,e) -> 
+         | Push([],e) ->  c_e env idle result e (* assert false ? *)
+         | Push(xs,e) ->
+               let qs = List.map (fun _ -> Gensym.gensym "push") xs in
+               let es = List.map2 (fun (x,t) q -> ESML_stackPrim (Push((Atom.Var x,translate_type t),q))) xs qs in
+               let* e' = c_e env idle result e in
+               (match es with 
+                | [] -> assert false
+                | e0::es0 -> 
+                    let ts = List.combine qs (es0@[e']) in
+                    let* () = out ([],ts,[]) in
+                    ret @@ e0)
+(*          | Push(xs,e) -> 
                let q = Gensym.gensym "q" in
                let* e' = c_e env idle result e in
                let t = (q,e') in
                let* () = out ([],[t],[]) in
-               ret @@ ESML_stackPrim (Push(List.map (fun (x,t) -> (Atom.Var x,translate_type t)) xs,q))
+               ret @@ ESML_stackPrim (Push(List.map (fun (x,t) -> (Atom.Var x,translate_type t)) xs,q)) *)
           | Push_arg(a,e) -> 
                assert (is_atom a);
-               let q = Gensym.gensym "q" in
+               let q = Gensym.gensym "push_arg" in
                let* e' = c_e env idle result e in
                let t = (q,e') in
                let* () = out ([],[t],[]) in
-               ret @@ ESML_stackPrim (Push([as_atom a,translate_type (ty_of a)],q))
+               ret @@ ESML_stackPrim (Push((as_atom a,translate_type (ty_of a)),q))
+          | LetPop([],_) -> assert false
           | LetPop(xs,e) -> 
-               let q = Gensym.gensym "q" in
+               let qs = List.map (fun _ -> Gensym.gensym "pop") xs in
+               let es = List.map2 (fun (x,t) q -> ESML_stackPrim (LetPop((x,translate_type t),q))) xs qs in
+               let* e' = c_e env idle result e in
+               (match es with 
+                | [] -> assert false
+                | e0::es0 -> 
+                    let ts = List.combine qs (es0@[e']) in
+                    let xs' = List.map (fun (x,t) -> x,translate_type t) xs in
+                    let* () = out ([],ts,List.map (fun (x,t) -> Local,x,t) xs') in
+                    ret @@ e0)
+             (*  let q = Gensym.gensym "q" in
                let* e' = c_e env idle result e in
                let t = (q,e') in
                let xs' = List.map (fun (x,t) -> x,translate_type t) xs in
                let* () = out ([],[t],List.map (fun (x,t) -> Local,x,t) xs') in
-               ret @@ ESML_stackPrim (LetPop(xs',q))
+               ret @@ ESML_stackPrim (LetPop(xs',q))*)
           | Save (q,e) -> 
                let q' = Gensym.gensym "q" in
                let* e' = c_e env idle result e in
